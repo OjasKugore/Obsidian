@@ -28,11 +28,10 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // ── Experimental ─────────────────────────────────────────────────────────────
-  experimental: {
-    // Neon serverless driver requires this for edge-compatible Prisma
-    serverComponentsExternalPackages: ['@prisma/client', '@neondatabase/serverless'],
-  },
+  // Neon serverless driver + Prisma must run in Node.js runtime, not the Edge
+  // bundler. This was `experimental.serverComponentsExternalPackages` in Next.js 14;
+  // it moved to a top-level key in Next.js 15+.
+  serverExternalPackages: ['@prisma/client', '@neondatabase/serverless'],
 };
 
 export default nextConfig;
