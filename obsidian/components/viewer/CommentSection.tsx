@@ -98,10 +98,11 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
       setIsSubmitting(true);
       setError(null);
 
-      // Encrypt comment body using the same cipher with direct symmetric mode
+      // Encrypt comment body using the shared paste key
       const encResult = await encrypt(content, 'plaintext', {
         burnAfterReading: false,
         openDiscussion: true,
+        customKey: rawKey,
       });
 
       const payload: CreateCommentBody = {

@@ -73,15 +73,18 @@ async function exportRawKey(key: CryptoKey): Promise<Uint8Array> {
 
 /**
  * Imports a raw 32-byte Uint8Array as an AES-256-GCM CryptoKey.
- * Used in decrypt() to reconstruct the key from the URL fragment.
+ * Used in decrypt() and for encrypting comments under the shared key.
  */
-async function importRawKey(raw: Uint8Array): Promise<CryptoKey> {
+async function importRawKey(
+  raw: Uint8Array,
+  usages: KeyUsage[] = ['encrypt', 'decrypt']
+): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
     buf(raw),
     { name: 'AES-GCM', length: 256 },
-    false, // decrypt key need not be extractable
-    ['decrypt']
+    false,
+    usages
   );
 }
 
@@ -108,21 +111,30 @@ export async function encrypt(
   options: {
     burnAfterReading?: boolean;
     openDiscussion?: boolean;
+    customKey?: Uint8Array;
   } = {}
 ): Promise<EncryptResult> {
-  const { burnAfterReading = true, openDiscussion = false } = options;
+  const { burnAfterReading = true, openDiscussion = false, customKey } = options;
 
   // 1. Generate IV and salt
   const iv   = randomBytes(IV_BYTES);
   const salt = randomBytes(SALT_BYTES);
 
-  // 2. Derive AES key
-  const key = await deriveKey(
-    randomBytes(32), // random 32-byte password (symmetric direct mode)
-    salt,
-    ITERATIONS
-  );
-  const rawKey = await exportRawKey(key);
+  // 2. Derive AES key (or import provided shared key for comments)
+  let key: CryptoKey;
+  let rawKey: Uint8Array;
+
+  if (customKey) {
+    rawKey = customKey;
+    key = await importRawKey(customKey);
+  } else {
+    key = await deriveKey(
+      randomBytes(32), // random 32-byte password (symmetric direct mode)
+      salt,
+      ITERATIONS
+    );
+    rawKey = await exportRawKey(key);
+  }
 
   // 3. Compress plaintext
   const encoder   = new TextEncoder();

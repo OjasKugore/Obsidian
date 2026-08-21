@@ -126,4 +126,23 @@ describe('Phase 1B ↔ Phase 1C End-to-End Integration Flow', () => {
       expect(true).toBe(true);
     }
   });
+
+  it('correctly encrypts and decrypts comment threads using the shared paste key', async () => {
+    // 1. Sender creates paste
+    const pasteContent = 'Design review notes';
+    const pasteEnc = await encrypt(pasteContent, 'plaintext', { openDiscussion: true, burnAfterReading: false });
+    const sharedKey = pasteEnc.rawKey;
+
+    // 2. Receiver encrypts a comment using the sharedKey
+    const commentBody = 'Looks good! Approved from security side. 🚀';
+    const commentEnc = await encrypt(commentBody, 'plaintext', {
+      openDiscussion: true,
+      burnAfterReading: false,
+      customKey: sharedKey,
+    });
+
+    // 3. Sender decrypts the comment using the sharedKey
+    const decryptedComment = await decrypt(commentEnc.ciphertext, commentEnc.adata, sharedKey);
+    expect(decryptedComment).toBe(commentBody);
+  });
 });
