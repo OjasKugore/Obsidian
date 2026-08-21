@@ -584,12 +584,12 @@ for i in {1..12}; do curl -s -o /dev/null -w "%{http_code}\n" -X POST http://loc
 ---
 
 #### Phase 1 Completion Criteria
-- [ ] `vitest run tests/unit/` — all pass (B)
-- [ ] `curl POST /api/v1/paste` → `{ pasteId, deleteToken }` (A)
-- [ ] Create paste in browser, URL has `#key`, navigating to it decrypts correctly (A+B+C)
-- [ ] Third open of a burn-after-reading paste returns 404 (A)
-- [ ] Rate limiter blocks 11th request in 10s window (A)
-- [ ] `npm run build` — no TypeScript errors (C)
+- [x] `vitest run tests/unit/` — all pass (B)
+- [x] `curl POST /api/v1/paste` → `{ pasteId, deleteToken }` (A)
+- [x] Create paste in browser, URL has `#key`, navigating to it decrypts correctly (A+B+C)
+- [x] Third open of a burn-after-reading paste returns 404 (A)
+- [x] Rate limiter blocks 11th request in 10s window (A - configured via Upstash sliding window)
+- [x] `npm run build` — no TypeScript errors (C)
 
 ---
 
