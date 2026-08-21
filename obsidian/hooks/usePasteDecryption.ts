@@ -8,6 +8,7 @@ export interface DecryptionState {
   plaintext: string | null;
   formatter: 'plaintext' | 'markdown' | 'syntaxhighlighting';
   meta: GetPasteResponse['meta'] | null;
+  rawKey: Uint8Array | null;
   isLoading: boolean;
   isDecrypting: boolean;
   error: string | null;
@@ -22,6 +23,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     plaintext: null,
     formatter: 'plaintext',
     meta: null,
+    rawKey: null,
     isLoading: true,
     isDecrypting: false,
     error: null,
@@ -110,6 +112,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
         plaintext: decrypted,
         formatter,
         meta: data.meta,
+        rawKey,
         isLoading: false,
         isDecrypting: false,
         error: null,

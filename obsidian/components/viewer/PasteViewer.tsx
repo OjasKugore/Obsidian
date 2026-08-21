@@ -17,6 +17,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
+import { CommentSection } from '@/components/viewer/CommentSection';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -29,6 +30,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     plaintext,
     formatter,
     meta,
+    rawKey,
     isLoading,
     isDecrypting,
     error,
@@ -269,6 +271,11 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </Link>
         </div>
       </div>
+
+      {/* End-to-End Encrypted Comment Thread */}
+      {meta?.openDiscussion && rawKey && (
+        <CommentSection pasteId={pasteId} rawKey={rawKey} />
+      )}
     </motion.div>
   );
 }
