@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }, // Pastes are private by design
 };
 
+import { ThemeProvider } from '@/components/theme-provider';
+
 export default async function RootLayout({
   children,
 }: {
@@ -34,10 +36,18 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col" data-nonce={nonce}>
-        {children}
+      <body className="min-h-full flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary-foreground" data-nonce={nonce}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -15,20 +15,15 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
 
 function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString =
+    process.env.DATABASE_URL ||
+    'postgres://placeholder:placeholder@localhost:5432/placeholder';
 
-  if (!connectionString) {
-    if (process.env.NODE_ENV === 'development') {
-      // In dev without a DB, return a client that will fail gracefully on use
-      console.warn(
-        '[prisma] DATABASE_URL not set — DB calls will fail. ' +
-          'Add it to .env.local to enable database features.'
-      );
-      return new PrismaClient({
-        log: ['error'],
-      });
-    }
-    throw new Error('DATABASE_URL environment variable is required');
+  if (!process.env.DATABASE_URL) {
+    console.warn(
+      '[prisma] DATABASE_URL not set — DB calls will fail at runtime. ' +
+        'Add it to .env.local to enable database features.'
+    );
   }
 
   const adapter = new PrismaNeon({ connectionString });

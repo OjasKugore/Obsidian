@@ -22,19 +22,27 @@ import { Redis } from '@upstash/redis';
 
 // ── Redis client singleton ────────────────────────────────────────────────────
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const hasUpstash = Boolean(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+);
+
+const redis = hasUpstash
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+  : null;
 
 // ── Rate limiter: 10 requests / 10 seconds sliding window ────────────────────
 
-const ratelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '10 s'),
-  analytics: true,
-  prefix: 'obsidian:rl',
-});
+const ratelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, '10 s'),
+      analytics: true,
+      prefix: 'obsidian:rl',
+    })
+  : null;
 
 // ── IP HMAC helper ────────────────────────────────────────────────────────────
 
@@ -96,6 +104,19 @@ export interface RateLimitResult {
 export async function checkRateLimit(
   request: Request
 ): Promise<RateLimitResult> {
+  if (!ratelimit) {
+    return {
+      success: true,
+      remaining: 10,
+      reset: Date.now() + 10_000,
+      headers: {
+        'X-RateLimit-Limit': '10',
+        'X-RateLimit-Remaining': '10',
+        'X-RateLimit-Reset': String(Date.now() + 10_000),
+      },
+    };
+  }
+
   const ip = getClientIP(request);
   const key = await hmacIP(ip);
   const { success, remaining, reset } = await ratelimit.limit(key);
