@@ -61,44 +61,17 @@ export function fnv1a64(data: Uint8Array): string {
 
 // ── Base58 ────────────────────────────────────────────────────────────────────
 // Bitcoin alphabet (no 0, O, I, l — avoids visual confusion in URLs).
+import basex from 'base-x';
+
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-const BASE58_MAP: Record<string, number> = {};
-for (let i = 0; i < BASE58_ALPHABET.length; i++) {
-  BASE58_MAP[BASE58_ALPHABET[i]] = i;
-}
+const bs58 = (typeof basex === 'function' ? basex : (basex as unknown as { default: typeof basex }).default)(BASE58_ALPHABET);
 
 /**
  * Encodes a Uint8Array as a Base58 string.
  * Used to encode the raw 32-byte AES key for the URL #fragment.
  */
 export function toBase58(bytes: Uint8Array): string {
-  // Count leading zero bytes
-  let leadingZeros = 0;
-  while (leadingZeros < bytes.length && bytes[leadingZeros] === 0) {
-    leadingZeros++;
-  }
-
-  // Convert bytes to a big integer (working array of base-256 digits)
-  const digits = [0];
-  for (let i = 0; i < bytes.length; i++) {
-    let carry = bytes[i];
-    for (let j = 0; j < digits.length; j++) {
-      carry += digits[j] << 8;
-      digits[j] = carry % 58;
-      carry = Math.floor(carry / 58);
-    }
-    while (carry > 0) {
-      digits.push(carry % 58);
-      carry = Math.floor(carry / 58);
-    }
-  }
-
-  // Build the output string (most-significant digit first)
-  let result = BASE58_ALPHABET[1].repeat(leadingZeros);
-  for (let i = digits.length - 1; i >= 0; i--) {
-    result += BASE58_ALPHABET[digits[i]];
-  }
-  return result;
+  return bs58.encode(bytes);
 }
 
 /**
@@ -106,37 +79,15 @@ export function toBase58(bytes: Uint8Array): string {
  * Throws if any character is not in the Base58 alphabet.
  */
 export function fromBase58(str: string): Uint8Array {
-  // Count leading '1' chars (represent zero bytes)
-  let leadingZeros = 0;
-  while (leadingZeros < str.length && str[leadingZeros] === '1') {
-    leadingZeros++;
-  }
-
-  const bytes = [0];
+  // Validate characters
   for (let i = 0; i < str.length; i++) {
-    const value = BASE58_MAP[str[i]];
-    if (value === undefined) {
+    if (!BASE58_ALPHABET.includes(str[i])) {
       throw new Error(`Invalid Base58 character: '${str[i]}'`);
     }
-    let carry = value;
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry & 0xff;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
   }
-
-  // Reverse (we built LSB-first) and prepend zero bytes for leading '1's
-  const result = new Uint8Array(leadingZeros + bytes.length);
-  for (let i = 0; i < bytes.length; i++) {
-    result[leadingZeros + i] = bytes[bytes.length - 1 - i];
-  }
-  return result;
+  return bs58.decode(str);
 }
+
 
 // ── Base64 ────────────────────────────────────────────────────────────────────
 // Standard base64 (with padding). Used for IV, salt, and ciphertext in adata.
