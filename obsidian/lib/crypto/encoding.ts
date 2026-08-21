@@ -13,6 +13,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import basex from 'base-x';
+
 // ── FNV-1a 64-bit ─────────────────────────────────────────────────────────────
 // Reference: http://www.isthe.com/chongo/tech/comp/fnv/
 // We avoid BigInt for max compatibility; represent the 64-bit state as two
@@ -61,7 +63,6 @@ export function fnv1a64(data: Uint8Array): string {
 
 // ── Base58 ────────────────────────────────────────────────────────────────────
 // Bitcoin alphabet (no 0, O, I, l — avoids visual confusion in URLs).
-import basex from 'base-x';
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const bs58 = (typeof basex === 'function' ? basex : (basex as unknown as { default: typeof basex }).default)(BASE58_ALPHABET);
