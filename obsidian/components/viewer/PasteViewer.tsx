@@ -75,8 +75,8 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── 404 / Burned After Reading State ────────────────────────────────────────
-  if (isBurned || (error && error.includes('burned'))) {
+  // ── 404 / Burned After Reading State (Only when not successfully decrypted) ──
+  if (!plaintext && (isBurned || (error && error.includes('burned')))) {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}

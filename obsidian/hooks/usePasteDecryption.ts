@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { decrypt, fromBase58 } from '@/lib/crypto/cipher';
 import type { GetPasteResponse } from '@/lib/api/schemas';
 
@@ -17,6 +17,7 @@ export interface DecryptionState {
 }
 
 export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
+  const fetchedRef = useRef(false);
   const [state, setState] = useState<DecryptionState>({
     plaintext: null,
     formatter: 'plaintext',
@@ -129,13 +130,17 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
   }, [pasteId]);
 
   useEffect(() => {
-    if (autoFetch && pasteId) {
+    if (autoFetch && pasteId && !fetchedRef.current) {
+      fetchedRef.current = true;
       fetchAndDecrypt();
     }
   }, [autoFetch, pasteId, fetchAndDecrypt]);
 
   return {
     ...state,
-    refetch: fetchAndDecrypt,
+    refetch: () => {
+      fetchedRef.current = false;
+      return fetchAndDecrypt();
+    },
   };
 }
