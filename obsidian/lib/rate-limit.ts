@@ -23,7 +23,9 @@ import { Redis } from '@upstash/redis';
 // ── Redis client singleton ────────────────────────────────────────────────────
 
 const hasUpstash = Boolean(
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN &&
+    !process.env.UPSTASH_REDIS_REST_URL.includes('YOUR-REDIS-INSTANCE')
 );
 
 const redis = hasUpstash
@@ -117,18 +119,32 @@ export async function checkRateLimit(
     };
   }
 
-  const ip = getClientIP(request);
-  const key = await hmacIP(ip);
-  const { success, remaining, reset } = await ratelimit.limit(key);
+  try {
+    const ip = getClientIP(request);
+    const key = await hmacIP(ip);
+    const { success, remaining, reset } = await ratelimit.limit(key);
 
-  return {
-    success,
-    remaining,
-    reset,
-    headers: {
-      'X-RateLimit-Limit': '10',
-      'X-RateLimit-Remaining': String(remaining),
-      'X-RateLimit-Reset': String(reset),
-    },
-  };
+    return {
+      success,
+      remaining,
+      reset,
+      headers: {
+        'X-RateLimit-Limit': '10',
+        'X-RateLimit-Remaining': String(remaining),
+        'X-RateLimit-Reset': String(reset),
+      },
+    };
+  } catch (err) {
+    console.warn('[rate-limit] Redis check failed, failing open:', err);
+    return {
+      success: true,
+      remaining: 10,
+      reset: Date.now() + 10_000,
+      headers: {
+        'X-RateLimit-Limit': '10',
+        'X-RateLimit-Remaining': '10',
+        'X-RateLimit-Reset': String(Date.now() + 10_000),
+      },
+    };
+  }
 }

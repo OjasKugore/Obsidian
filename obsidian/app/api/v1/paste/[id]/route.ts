@@ -88,10 +88,6 @@ export async function GET(
       // Burn-after-reading: delete and return the data in one shot
       if (found.burnAfterReading || shouldDestruct) {
         await tx.paste.delete({ where: { id } });
-        // Log the access before deleting
-        await tx.accessLog.create({
-          data: { pasteId: id, ipHash },
-        });
         return { ...found, views: newViews };
       }
 
