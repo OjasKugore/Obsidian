@@ -26,22 +26,15 @@ function createPusherClient(): Pusher {
   const cluster = process.env.PUSHER_CLUSTER;
 
   if (!appId || !key || !secret || !cluster) {
-    // In development without credentials, return a stub that no-ops
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        '[pusher] Missing PUSHER_* env vars — Pusher is disabled in dev. ' +
-          'Real-time collab (Phase 3) will not work until you add credentials.'
-      );
-      // Return a minimal stub that satisfies the Pusher type
-      return {
-        trigger: async () => ({ status: 200 }),
-        authorizeChannel: () => ({ auth: 'stub' }),
-      } as unknown as Pusher;
-    }
-    throw new Error(
-      'Missing required Pusher environment variables: ' +
-        'PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER'
+    console.warn(
+      '[pusher] Missing PUSHER_* env vars — Pusher is disabled. ' +
+        'Real-time collab (Phase 3) will not work until you add credentials to .env.local.'
     );
+    // Return a minimal stub that satisfies the Pusher type
+    return {
+      trigger: async () => ({ status: 200 }),
+      authorizeChannel: () => ({ auth: 'stub' }),
+    } as unknown as Pusher;
   }
 
   return new Pusher({ appId, key, secret, cluster, useTLS: true });
