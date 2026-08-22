@@ -14,10 +14,13 @@ import {
   Clock,
   PlusCircle,
   Eye,
-  Terminal,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
+import { ShardQuorumPanel } from '@/components/viewer/ShardQuorumPanel';
 import { CommentSection } from '@/components/viewer/CommentSection';
+import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -37,6 +40,12 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     isBurned,
     isTimeLocked,
     timelockedUntil,
+    isShamir,
+    threshold,
+    totalShards,
+    loadedShards,
+    isQuorumNeeded,
+    addShard,
   } = usePasteDecryption(pasteId, true);
 
   const [copied, setCopied] = React.useState(false);
@@ -57,7 +66,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   const charCount = plaintext ? plaintext.length : 0;
 
   // ── Loading & Decrypting State ──────────────────────────────────────────────
-  if (isLoading || isDecrypting) {
+  if (isLoading || (isDecrypting && !isQuorumNeeded)) {
     return (
       <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center min-h-[400px] p-8">
         <motion.div
@@ -77,7 +86,21 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── 404 / Burned After Reading State (Only when not successfully decrypted) ──
+  // ── Shamir Quorum Panel (When more shards are required) ─────────────────────
+  if (!plaintext && isQuorumNeeded) {
+    return (
+      <ShardQuorumPanel
+        threshold={threshold}
+        totalShards={totalShards}
+        loadedShards={loadedShards}
+        onAddShard={addShard}
+        isDecrypting={isDecrypting}
+        error={error}
+      />
+    );
+  }
+
+  // ── 404 / Burned After Reading State ────────────────────────────────────────
   if (!plaintext && (isBurned || (error && error.includes('burned')))) {
     return (
       <motion.div
@@ -165,6 +188,21 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
       transition={{ duration: 0.4 }}
       className="w-full max-w-4xl mx-auto flex flex-col gap-4 animate-decrypt-reveal"
     >
+      {/* Shamir Quorum Banner if applicable */}
+      {isShamir && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 shrink-0 text-blue-400" />
+            <span>
+              <strong>Quorum Satisfied ({threshold}-of-{totalShards} SSS):</strong> All required key shards have been collected and verified. The AES key was reconstructed in-memory.
+            </span>
+          </div>
+          <Badge variant="glow" className="shrink-0 text-[10px]">
+            Reconstructed
+          </Badge>
+        </div>
+      )}
+
       {/* Burn Notice Banner if applicable */}
       {meta?.burnAfterReading && (
         <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-medium">
@@ -195,23 +233,25 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
                 <button
                   type="button"
                   onClick={() => setViewMode('formatted')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
                     viewMode === 'formatted'
                       ? 'bg-background text-foreground shadow-sm font-medium'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
+                  <Sparkles className="h-3 w-3 text-purple-400" />
                   Rendered
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('raw')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
                     viewMode === 'raw'
                       ? 'bg-background text-foreground shadow-sm font-medium'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
+                  <FileText className="h-3 w-3" />
                   Raw
                 </button>
               </div>
@@ -244,12 +284,18 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </div>
         </div>
 
-        {/* Plaintext Content Display with Line Numbers */}
-        <div className="relative rounded-2xl bg-black/40 border border-white/5 p-4 sm:p-5 overflow-x-auto">
-          <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words selection:bg-primary/30">
-            {plaintext}
-          </pre>
-        </div>
+        {/* Content Display: Rendered Markdown vs Plaintext/Raw Code */}
+        {formatter === 'markdown' && viewMode === 'formatted' ? (
+          <div className="relative rounded-2xl bg-black/40 border border-white/5 p-5 sm:p-6 overflow-x-auto min-h-[140px]">
+            <MarkdownPreview content={plaintext || ''} />
+          </div>
+        ) : (
+          <div className="relative rounded-2xl bg-black/40 border border-white/5 p-4 sm:p-5 overflow-x-auto min-h-[140px]">
+            <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words selection:bg-primary/30">
+              {plaintext}
+            </pre>
+          </div>
+        )}
 
         {/* Metadata Footer */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs text-muted-foreground border-t border-border/30">

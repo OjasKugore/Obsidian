@@ -62,38 +62,39 @@
 
 ---
 
-## Two-Tier Encryption Architecture
+## Two-Tier Encryption Architecture & UX Mode Hierarchy
 
-> This is the canonical architecture for Obsidian's entire crypto system. All three key modes share the same AES-256-GCM encryption engine at Tier 1. Only the **key delivery mechanism** differs at Tier 2.
+> This is the canonical architecture for Obsidian's entire crypto system. All key modes share the same AES-256-GCM encryption engine at Tier 1. At Tier 2 and UX Level, the user is presented with two **mutually exclusive top-level choices**:
 
 ```
-┌──────────────────────────────────────────────────┐
-│             TIER 1 — ENCRYPTION ENGINE           │
-│              Always AES-256-GCM                  │
-│         (Encrypts the actual text/payload)       │
-│                                                  │
-│          Produces 32-byte AES Key (K)            │
-└──────────────────────┬───────────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────────┐
-│            TIER 2 — KEY MANAGEMENT TIER          │
-└───────────────┬──────────────────────────────────┘
-                │
-       ┌────────┴──────────┐
-       ▼                   ▼
-┌─────────────────┐  ┌─────────────────────────────┐
-│ SYMMETRIC MODES │  │      ASYMMETRIC MODE         │
-│                 │  │                             │
-│ 1. Direct Hash  │  │  RSA-OAEP Key Wrapping      │
-│    Key in #hash │  │  • AES Key K wrapped with   │
-│    1-click open │  │    recipient's RSA Public Key│
-│                 │  │  • Only recipient's          │
-│ 2. Shamir SSS   │  │    Private Key can unwrap K  │
-│    K → k-of-n  │  │  • URL carries #asym         │
-│    shards       │  │    (no key in fragment)      │
-│    Quorum reqd  │  └─────────────────────────────┘
-└─────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                      TIER 1 — ENCRYPTION ENGINE                        │
+│                          Always AES-256-GCM                            │
+│                  (Encrypts the actual text/payload)                    │
+│                                                                        │
+│                     Produces 32-byte AES Key (K)                       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                   TIER 2 — KEY MANAGEMENT / UX MODES                   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+           ┌────────────────────────┴────────────────────────┐
+           ▼                                                 ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐
+│       MODE A: SINGLE RECIPIENT       │  │      MODE B: MULTIPLE RECIPIENTS     │
+│       (1-to-1 Direct Delivery)       │  │    (Multi-Party Threshold Quorum)    │
+│                                      │  │                                      │
+│  1. Symmetric (#key in URL hash)     │  │  Shamir's Secret Sharing (SSS)       │
+│     • Key never sent to server       │  │  • AES Key K split into N shares     │
+│     • 1-click decrypt for recipient  │  │  • Quorum of K-of-N required         │
+│                                      │  │  • Multi-shard links generated       │
+│  2. Asymmetric RSA-OAEP Key Wrapping │  └──────────────────────────────────────┘
+│     • AES Key K wrapped with pub key │
+│     • Recipient private key unwraps  │
+│     • URL carries #asym (no key)     │
+└──────────────────────────────────────┘
 ```
 
 ---
@@ -593,33 +594,33 @@ for i in {1..12}; do curl -s -o /dev/null -w "%{http_code}\n" -X POST http://loc
 
 ---
 
-### Phase 2 — Shamir's Secret Sharing + Asymmetric RSA-OAEP 🔑
-**Day 2 (22 Aug) — Target: Both highest-priority innovations fully working end-to-end**
+### Phase 2 — Advanced Key Management (Single vs Multi-User Modes) 🔑
+**Day 2 (22 Aug) — Target: Both highest-priority delivery modes integrated into landing UX**
 
 > [!IMPORTANT]
-> These are the two crown jewels of Obsidian's security model. Both ship in this phase before any UI polish.
+> The Obsidian landing page presents the user with two mutually exclusive delivery choices:
+> 1. **Single Recipient (1-to-1)**: Symmetric (#hash key) or Asymmetric (RSA-OAEP pub key)
+> 2. **Multiple Recipients (Multi-Party)**: Shamir's Secret Sharing (k-of-n threshold quorum)
 
-#### Goals — Part A: Shamir's Secret Sharing
-- `lib/crypto/shamir.ts` wrapper around `secrets.js-grempe`
-- **Split Key UI** in `PasteEditor.tsx`: threshold $K$ slider, total shards $N$ slider
-- On submit: AES Key $K$ split into $N$ shards via `secrets.share()`; each shard creates **one paste row** (`shard: true`, `shardIndex`, `shardTotal`)
-- **Share Panel** displays $N$ separate shard URLs
-- **Reconstruction UI**: on viewing a shard URL, show "🔒 Shard X of N loaded, need Y more"; input box to paste additional shard strings; `secrets.combine()` runs in browser; decrypt ciphertext
-- Unit tests for `shamir.ts`: split → reconstruct round-trip
-- E2E test: (k=2, n=3) — shard 1 alone fails; shards 1+2 succeed
+#### Goals — Part A: Multi-User Mode (Shamir's Secret Sharing SSS) [COMPLETED]
+- `lib/crypto/shamir.ts`: Pure TypeScript Galois Field GF(2^8) arithmetic + Lagrange interpolation evaluated at x=0
+- **Landing UX Multi-User Tab** in `PasteEditor.tsx`: mutually exclusive top-level mode switch; threshold $K$ slider (2..10), total shards $N$ slider (2..10)
+- On submit: 32-byte AES Key $K$ split into $N$ shards via `splitKey()`; generates $N$ distinct shard URLs
+- **Share Panel**: displays $N$ separate shard URLs with individual copy and "Copy All Links" actions
+- **Reconstruction UI** (`ShardQuorumPanel.tsx`): on viewing shard URL, shows visual quorum meter, interactive shard slots, and input box to paste additional shard tokens or URLs; combines in-browser and decrypts
+- Unit tests in `tests/unit/shamir.test.ts` & integration tests in `tests/unit/integration.test.ts` ✔️
 
-#### Goals — Part B: Asymmetric RSA-OAEP Key Wrapping
+#### Goals — Part B: Single-User Asymmetric RSA-OAEP Key Wrapping (Next Step)
 - `lib/crypto/asymmetric.ts`: `generateRSAKeyPair()`, `wrapAESKey()`, `unwrapAESKey()`, `importRSAPublicKey()`, `importRSAPrivateKey()`
 - `lib/crypto/keystore.ts`: `saveIdentityKey()`, `loadIdentityKey()`, `purgeKeys()` backed by IndexedDB
 - **Identity Key Bootstrap**: on first Obsidian visit, generate RSA-2048 OAEP keypair; save to IndexedDB; show "📋 Copy My Public Key" button
-- **Recipient Key Input** in `PasteEditor.tsx`: 
-  - Paste raw base64 public key
-  - Type `github:<username>` → fetch from `https://github.com/<username>.keys`
-  - Select from saved contacts (browser localStorage)
+- **Landing UX Single-User Tab** in `PasteEditor.tsx`:
+  - Mode 1: **Symmetric (#key)** — direct link (Default, Active)
+  - Mode 2: **Asymmetric RSA-OAEP** — public key input (Paste raw base64, GitHub lookup `github:<username>`, or contacts)
 - **Create flow**: AES-256-GCM runs normally (Tier 1 unchanged); `SubtleCrypto.wrapKey('raw', aesKey, recipientRSAPub, {name:'RSA-OAEP'})` → wrapped key stored in `adata[4]`; URL = `...#asym`
 - **View flow**: browser detects `#asym` sentinel; shows `PrivateKeyUnlock.tsx` prompt; `SubtleCrypto.unwrapKey()` → non-exportable AES key → decrypt
 - **"Remember in session" toggle**: private key stored in `sessionStorage` only (wiped on tab close)
-- **Mutual exclusion** enforced in UI: selecting "Recipient Key" disables "Split Key", and vice versa
+- **Mutual exclusion** enforced in UI: selecting Single User vs Multi-User switches mode cleanly
 - Unit tests for `asymmetric.ts`: wrap → unwrap round-trip
 
 #### Files Created / Modified

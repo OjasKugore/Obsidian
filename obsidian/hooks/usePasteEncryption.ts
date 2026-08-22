@@ -2,13 +2,23 @@
 
 import { useState, useCallback } from 'react';
 import { encrypt, toBase58 } from '@/lib/crypto/cipher';
+import { splitKey } from '@/lib/crypto/shamir';
 import type { Expiry, CreatePasteBody, CreatePasteResponse } from '@/lib/api/schemas';
+
+export interface ShardUrlItem {
+  index: number;
+  url: string;
+  shardString: string;
+}
 
 export interface EncryptionOptions {
   formatter?: 'plaintext' | 'markdown' | 'syntaxhighlighting';
   expire?: Expiry;
   burnAfterReading?: boolean;
   openDiscussion?: boolean;
+  isShamir?: boolean;
+  threshold?: number;
+  totalShares?: number;
 }
 
 export interface EncryptionResult {
@@ -16,6 +26,10 @@ export interface EncryptionResult {
   shareUrl: string;
   deleteToken: string;
   rawKeyBase58: string;
+  isShamir?: boolean;
+  threshold?: number;
+  totalShares?: number;
+  shardUrls?: ShardUrlItem[];
 }
 
 export function usePasteEncryption() {
@@ -33,11 +47,25 @@ export function usePasteEncryption() {
         expire = '1day',
         burnAfterReading = true,
         openDiscussion = false,
+        isShamir = false,
+        threshold = 2,
+        totalShares = 3,
       } = options;
 
       if (!plaintext.trim()) {
         setError('Paste content cannot be empty.');
         return null;
+      }
+
+      if (isShamir) {
+        if (threshold < 2 || totalShares < 2) {
+          setError('Threshold and total shares must be at least 2.');
+          return null;
+        }
+        if (threshold > totalShares) {
+          setError('Threshold (k) cannot exceed total shares (n).');
+          return null;
+        }
       }
 
       setIsLoading(true);
@@ -59,7 +87,9 @@ export function usePasteEncryption() {
             expire,
             burnAfterReading,
             openDiscussion,
-            shard: false,
+            shard: isShamir,
+            shardIndex: isShamir ? 1 : undefined,
+            shardTotal: isShamir ? totalShares : undefined,
             recipientMode: false,
           },
         };
@@ -81,18 +111,33 @@ export function usePasteEncryption() {
         }
 
         const data: CreatePasteResponse = await response.json();
-
-        // 4. Construct Share URL with #base58(rawKey)
-        const keyBase58 = toBase58(encResult.rawKey);
         const origin =
           typeof window !== 'undefined' ? window.location.origin : '';
-        const shareUrl = `${origin}/${data.pasteId}#${keyBase58}`;
+        const keyBase58 = toBase58(encResult.rawKey);
+
+        let shardUrls: ShardUrlItem[] | undefined;
+        let primaryShareUrl = `${origin}/${data.pasteId}#${keyBase58}`;
+
+        if (isShamir) {
+          // Split the 32-byte AES key into N shards with threshold K
+          const shards = splitKey(encResult.rawKey, totalShares, threshold);
+          shardUrls = shards.map((shardStr, idx) => ({
+            index: idx + 1,
+            url: `${origin}/${data.pasteId}#${shardStr}`,
+            shardString: shardStr,
+          }));
+          primaryShareUrl = shardUrls[0]?.url || primaryShareUrl;
+        }
 
         const res: EncryptionResult = {
           pasteId: data.pasteId,
-          shareUrl,
+          shareUrl: primaryShareUrl,
           deleteToken: data.deleteToken,
           rawKeyBase58: keyBase58,
+          isShamir,
+          threshold: isShamir ? threshold : undefined,
+          totalShares: isShamir ? totalShares : undefined,
+          shardUrls,
         };
 
         setResult(res);
