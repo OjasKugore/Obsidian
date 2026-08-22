@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock,
   Flame,
@@ -13,11 +13,24 @@ import {
   Loader2,
   MessageSquare,
   Shield,
+  Layers,
+  KeyRound,
+  Info,
+  User,
+  Users,
+  Key,
+  ShieldCheck,
+  Eye,
+  PenLine,
 } from 'lucide-react';
+import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Expiry } from '@/lib/api/schemas';
 import type { EncryptionOptions, EncryptionResult } from '@/hooks/usePasteEncryption';
+
+type DeliveryTarget = 'single' | 'multiple';
+type SingleUserSubMode = 'symmetric' | 'asymmetric';
 
 interface PasteEditorProps {
   onEncrypt: (
@@ -36,9 +49,30 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
   const [burnAfterReading, setBurnAfterReading] = React.useState(true);
   const [openDiscussion, setOpenDiscussion] = React.useState(false);
 
+  // Editor mode for markdown: 'write' vs 'preview'
+  const [editorTab, setEditorTab] = React.useState<'write' | 'preview'>('write');
+
+  // Top-level mutually exclusive delivery mode: 'single' vs 'multiple'
+  const [deliveryTarget, setDeliveryTarget] = React.useState<DeliveryTarget>('single');
+  // Single user sub-mode: 'symmetric' (active) vs 'asymmetric' (coming in Phase 2B)
+  const [singleSubMode, setSingleSubMode] = React.useState<SingleUserSubMode>('symmetric');
+
+  // Shamir Secret Sharing state (active when deliveryTarget === 'multiple')
+  const [threshold, setThreshold] = React.useState(2);
+  const [totalShares, setTotalShares] = React.useState(3);
+
+  const isShamir = deliveryTarget === 'multiple';
+
   const lineCount = content ? content.split('\n').length : 1;
   const charCount = content.length;
   const byteCount = new TextEncoder().encode(content).length;
+
+  const handleFormatterChange = (newFormatter: 'plaintext' | 'markdown' | 'syntaxhighlighting') => {
+    setFormatter(newFormatter);
+    if (newFormatter !== 'markdown') {
+      setEditorTab('write');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,16 +81,32 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     await onEncrypt(content, {
       formatter,
       expire,
-      burnAfterReading,
+      burnAfterReading: isShamir ? false : burnAfterReading,
       openDiscussion,
+      isShamir,
+      threshold,
+      totalShares,
     });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Support Cmd+Enter / Ctrl+Enter to submit
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSubmit(e);
+    }
+  };
+
+  const handleThresholdChange = (val: number) => {
+    setThreshold(val);
+    if (val > totalShares) {
+      setTotalShares(val);
+    }
+  };
+
+  const handleTotalSharesChange = (val: number) => {
+    setTotalShares(val);
+    if (val < threshold) {
+      setThreshold(val);
     }
   };
 
@@ -68,15 +118,60 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
       transition={{ duration: 0.3 }}
       className="w-full max-w-4xl mx-auto"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {/* Main Editor Card */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* ── Top-Level Mutually Exclusive Recipient Selector ─────────────── */}
+        <div className="glass-panel rounded-2xl p-3 sm:p-4 border border-border/80 bg-background/50">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Step 1 &bull; Select Delivery Target
+              </span>
+              <span className="text-[11px] text-muted-foreground/80">
+                Choose whether you are sending to an individual recipient or a multi-party group
+              </span>
+            </div>
+
+            {/* Mutually Exclusive Mode Toggle Buttons */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/60">
+              {/* Single User Option */}
+              <button
+                type="button"
+                onClick={() => setDeliveryTarget('single')}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  deliveryTarget === 'single'
+                    ? 'bg-background text-foreground shadow-md ring-1 ring-primary/30 text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <User className="h-4 w-4" />
+                <span>Single User</span>
+              </button>
+
+              {/* Multiple Users Option */}
+              <button
+                type="button"
+                onClick={() => setDeliveryTarget('multiple')}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  deliveryTarget === 'multiple'
+                    ? 'bg-background text-foreground shadow-md ring-1 ring-primary/30 text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Users className="h-4 w-4" />
+                <span>Multiple Users (Shamir)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Main Editor Card ────────────────────────────────────────────── */}
         <div className="glass-panel rounded-2xl p-4 sm:p-6 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:shadow-[0_0_30px_-5px_rgba(59,130,246,0.25)]">
           {/* Editor Header / Format Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-border/40">
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/40">
               <button
                 type="button"
-                onClick={() => setFormatter('plaintext')}
+                onClick={() => handleFormatterChange('plaintext')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   formatter === 'plaintext'
                     ? 'bg-background text-foreground shadow-sm'
@@ -88,7 +183,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setFormatter('markdown')}
+                onClick={() => handleFormatterChange('markdown')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   formatter === 'markdown'
                     ? 'bg-background text-foreground shadow-sm'
@@ -100,7 +195,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setFormatter('syntaxhighlighting')}
+                onClick={() => handleFormatterChange('syntaxhighlighting')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   formatter === 'syntaxhighlighting'
                     ? 'bg-background text-foreground shadow-sm'
@@ -112,6 +207,36 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </button>
             </div>
 
+            {/* Markdown Write / Preview Toggle */}
+            {formatter === 'markdown' && (
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/70 border border-border/60 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setEditorTab('write')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all font-medium ${
+                    editorTab === 'write'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <PenLine className="h-3 w-3" />
+                  <span>Write</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditorTab('preview')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all font-medium ${
+                    editorTab === 'preview'
+                      ? 'bg-background text-primary shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Eye className="h-3 w-3" />
+                  <span>Preview</span>
+                </button>
+              </div>
+            )}
+
             {/* Quick badges */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{lineCount} {lineCount === 1 ? 'line' : 'lines'}</span>
@@ -122,19 +247,29 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             </div>
           </div>
 
-          {/* Text Area */}
+          {/* Text Area vs Live Markdown Preview */}
           <div className="relative">
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Paste or write your confidential secret, token, code snippet, or private notes here...&#10;&#10;Everything is encrypted using AES-256-GCM directly in your browser with SubtleCrypto before being transmitted."
-              rows={14}
-              required
-              className="w-full resize-y min-h-[260px] bg-transparent border-0 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-              spellCheck={false}
-              autoFocus
-            />
+            {formatter === 'markdown' && editorTab === 'preview' ? (
+              <div className="w-full min-h-[260px] p-4 rounded-xl bg-black/40 border border-white/5 overflow-y-auto">
+                <MarkdownPreview content={content} />
+              </div>
+            ) : (
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  formatter === 'markdown'
+                    ? '# Confidential Notes\n\nWrite your secret notes using **Markdown** formatting...\n\n- [x] Supports task lists\n- Supports tables, links, and code blocks `const key = ...`\n\nClick the **Preview** tab above to view rendered output.'
+                    : 'Paste or write your confidential secret, token, code snippet, or private notes here...\n\nEverything is encrypted using AES-256-GCM directly in your browser with SubtleCrypto before being transmitted.'
+                }
+                rows={14}
+                required
+                className="w-full resize-y min-h-[260px] bg-transparent border-0 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                spellCheck={false}
+                autoFocus
+              />
+            )}
           </div>
 
           {/* Bottom helper info */}
@@ -149,7 +284,171 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
           </div>
         </div>
 
-        {/* Options Bar */}
+        {/* ── Mode-Specific Security & Encryption Configuration ─────────────── */}
+        <AnimatePresence mode="wait">
+          {deliveryTarget === 'single' ? (
+            /* ── Single User Configuration: Symmetric vs Asymmetric ─────── */
+            <motion.div
+              key="single-user-config"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-4"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                    Single User Encryption Mode
+                  </span>
+                </div>
+                <Badge variant="glow" className="text-[10px]">
+                  1-to-1 Direct Access
+                </Badge>
+              </div>
+
+              {/* Sub-mode choices: Symmetric vs Asymmetric */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Symmetric Link Mode (Implemented & Active) */}
+                <div
+                  onClick={() => setSingleSubMode('symmetric')}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-2 ${
+                    singleSubMode === 'symmetric'
+                      ? 'bg-primary/10 border-primary/50 ring-1 ring-primary/30'
+                      : 'bg-background/40 border-border/60 hover:border-border'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                      <Key className="h-4 w-4 text-blue-400" />
+                      <span>Symmetric Key in #Hash</span>
+                    </div>
+                    <Badge variant="success" className="text-[9px] py-0 px-1.5">
+                      Active
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Decryption key stays in the URL fragment (<code className="font-mono text-blue-300">#key</code>). Never sent to the server. Recipient clicks link to decrypt immediately.
+                  </p>
+                </div>
+
+                {/* 2. Asymmetric RSA-OAEP Mode (Placeholder / Coming in Phase 2B) */}
+                <div
+                  className="p-3.5 rounded-xl border border-dashed border-border/60 bg-muted/20 opacity-75 cursor-not-allowed flex flex-col gap-2 relative"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                      <ShieldCheck className="h-4 w-4 text-purple-400" />
+                      <span>Asymmetric RSA-OAEP</span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] py-0 px-1.5 text-muted-foreground border-purple-500/40">
+                      Phase 2B (Next)
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Encrypt with recipient&apos;s RSA Public Key. Only recipient&apos;s browser private key can unwrap the AES key. No key in URL fragment.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            /* ── Multiple Users Configuration: Shamir SSS Quorum ─────────── */
+            <motion.div
+              key="multi-user-config"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-4 border border-blue-500/30"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                    Multiple Users: Shamir&apos;s Secret Sharing (k-of-n)
+                  </span>
+                </div>
+                <Badge variant="glow" className="text-[10px]">
+                  {threshold}-of-{totalShares} Quorum
+                </Badge>
+              </div>
+
+              {/* Shamir Sliders */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Threshold (k) */}
+                <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-background/60 border border-border/60">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-foreground">
+                      Required Threshold ($K$)
+                    </span>
+                    <Badge variant="glow" className="font-mono text-[11px]">
+                      {threshold} Shards
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Minimum shards required to reconstruct and decrypt
+                  </p>
+                  <input
+                    type="range"
+                    min={2}
+                    max={10}
+                    value={threshold}
+                    onChange={(e) => handleThresholdChange(parseInt(e.target.value, 10))}
+                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary mt-1"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                    <span>2</span>
+                    <span>4</span>
+                    <span>6</span>
+                    <span>8</span>
+                    <span>10</span>
+                  </div>
+                </div>
+
+                {/* Total Shares (n) */}
+                <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-background/60 border border-border/60">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-foreground">
+                      Total Shares ($N$)
+                    </span>
+                    <Badge variant="glow" className="font-mono text-[11px]">
+                      {totalShares} Shards
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Total unique shard links generated to distribute
+                  </p>
+                  <input
+                    type="range"
+                    min={2}
+                    max={10}
+                    value={totalShares}
+                    onChange={(e) => handleTotalSharesChange(parseInt(e.target.value, 10))}
+                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary mt-1"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-0.5">
+                    <span>2</span>
+                    <span>4</span>
+                    <span>6</span>
+                    <span>8</span>
+                    <span>10</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quorum Explanation */}
+              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2.5">
+                <Info className="h-4 w-4 shrink-0 mt-0.5 text-blue-400" />
+                <span>
+                  Any <strong>{threshold}</strong> of the <strong>{totalShares}</strong> generated shard links must be combined by recipients to reconstruct the decryption key. Individual shards reveal zero data.
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Standard Options Bar (Expiry, Burn, Discussion, Submit) ──────── */}
         <div className="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             {/* Expiry Selector */}
@@ -176,26 +475,34 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
 
             <div className="h-5 w-[1px] bg-border/60 hidden sm:block" />
 
-            {/* Burn After Reading Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer select-none group">
-              <input
-                type="checkbox"
-                checked={burnAfterReading}
-                onChange={(e) => setBurnAfterReading(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background/80 cursor-pointer"
-              />
-              <div className="flex items-center gap-1.5">
-                <Flame className={`h-4 w-4 transition-colors ${burnAfterReading ? 'text-amber-400' : 'text-muted-foreground'}`} />
-                <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                  Burn after reading
-                </span>
-              </div>
-              {burnAfterReading && (
-                <Badge variant="warning" className="text-[10px] py-0 px-1.5">
-                  1 view only
+            {/* Burn After Reading Toggle (Single user only) */}
+            {!isShamir ? (
+              <label className="flex items-center gap-2 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={burnAfterReading}
+                  onChange={(e) => setBurnAfterReading(e.target.checked)}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background/80 cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <Flame className={`h-4 w-4 transition-colors ${burnAfterReading ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                  <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                    Burn after reading
+                  </span>
+                </div>
+                {burnAfterReading && (
+                  <Badge variant="warning" className="text-[10px] py-0 px-1.5">
+                    1 view only
+                  </Badge>
+                )}
+              </label>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Badge variant="outline" className="text-[10px]">
+                  Multi-shard access
                 </Badge>
-              )}
-            </label>
+              </div>
+            )}
 
             {/* Open Discussion Toggle */}
             <label className="flex items-center gap-2 cursor-pointer select-none group">
@@ -225,12 +532,12 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Encrypting & Storing...</span>
+                <span>{isShamir ? 'Splitting & Encrypting...' : 'Encrypting & Storing...'}</span>
               </>
             ) : (
               <>
-                <Lock className="h-4 w-4" />
-                <span>Encrypt & Share</span>
+                {isShamir ? <Layers className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                <span>{isShamir ? `Encrypt & Split (${threshold}/${totalShares})` : 'Encrypt & Share'}</span>
               </>
             )}
           </Button>
