@@ -2,14 +2,15 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { ShieldCheck, Moon, Sun, Lock, PlusCircle } from 'lucide-react';
+import { Moon, Sun, Plus, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { IdentityPanel } from '@/components/header/IdentityPanel';
 
 export function Header() {
-  const { setTheme, resolvedTheme } = useTheme();
+  const pathname = usePathname();
+  const { setTheme, theme, resolvedTheme } = useTheme();
   const mounted = React.useSyncExternalStore(
     () => () => {},
     () => true,
@@ -17,83 +18,81 @@ export function Header() {
   );
 
   const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+    const current = resolvedTheme || theme;
+    setTheme(current === 'dark' ? 'light' : 'dark');
   };
 
+  const isHome = pathname === '/';
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl transition-colors">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-sm transition-colors">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-8">
+        {/* Brand & Nav */}
+        <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="group flex items-center gap-2.5 transition-transform active:scale-95"
+            className="group flex items-center gap-2.5 transition-all duration-150 cursor-pointer"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-md shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-shadow">
-              <Lock className="h-4 w-4 text-white" />
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-foreground text-background font-bold transition-transform duration-200 group-hover:scale-105 shadow-sm">
+              <Shield className="h-4 w-4 fill-current text-background" />
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-bold tracking-tight text-foreground">
-                  Obsidian
-                </span>
-                <Badge
-                  variant="glow"
-                  className="hidden sm:inline-flex text-[10px] px-1.5 py-0 uppercase tracking-widest font-bold"
-                >
-                  v2 E2EE
-                </Badge>
-              </div>
-              <span className="hidden sm:block text-[11px] text-muted-foreground font-medium">
-                Zero-Knowledge Encrypted Pastebin
-              </span>
-            </div>
+            <span className="font-[family-name:var(--font-montserrat)] text-xl font-black tracking-tighter text-foreground group-hover:opacity-90 transition-opacity">
+              OBSIDIAN
+            </span>
           </Link>
+
+          <nav className="hidden md:flex items-center gap-2 text-xs font-mono">
+            <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
+              Explore
+            </span>
+            <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
+              Protocol
+            </span>
+            <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
+              Security
+            </span>
+          </nav>
         </div>
 
-        {/* Status indicator + Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden md:flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Client-Side AES-GCM</span>
-          </div>
-
-          <Link href="/">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 font-medium border-white/10"
-            >
-              <PlusCircle className="h-4 w-4 text-primary" />
-              <span className="hidden sm:inline">New Paste</span>
-            </Button>
-          </Link>
-
-          {/* Identity key panel */}
+        {/* Right Tools & Identity */}
+        <div className="flex items-center gap-2.5">
+          {/* Identity key manager panel */}
           <IdentityPanel />
 
           {/* Theme switcher */}
           {mounted && (
             <Button
-              variant="glass"
+              variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="h-9 w-9 rounded-xl"
+              className="h-8 w-8 rounded-lg border border-border/60 bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted hover:border-foreground/40 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer shadow-sm"
               aria-label="Toggle theme"
+              id="theme-toggle-btn"
             >
               {resolvedTheme === 'dark' ? (
-                <Sun className="h-4 w-4 text-amber-400 transition-transform rotate-0 hover:rotate-45" />
+                <Sun className="h-4 w-4" />
               ) : (
-                <Moon className="h-4 w-4 text-slate-700 transition-transform rotate-0 hover:-rotate-12" />
+                <Moon className="h-4 w-4" />
               )}
             </Button>
+          )}
+
+          {/* Create Paste Link - only on view pages */}
+          {!isHome && (
+            <Link href="/">
+              <Button
+                size="sm"
+                className="h-8 px-3.5 text-xs font-semibold bg-foreground text-background hover:opacity-90 hover:scale-[1.02] active:scale-95 gap-1.5 rounded-lg transition-all shadow-md"
+              >
+                <Plus className="h-3.5 w-3.5 text-background" />
+                <span>New Paste</span>
+              </Button>
+            </Link>
           )}
         </div>
       </div>
     </header>
   );
 }
+
+export default Header;

@@ -102,7 +102,7 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
             if (isInline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded bg-muted/80 border border-border/60 font-mono text-xs text-blue-300"
+                  className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-xs text-foreground font-semibold"
                   {...props}
                 >
                   {children}
@@ -111,9 +111,9 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
             }
 
             return (
-              <div className="relative my-3 rounded-xl overflow-hidden bg-black/60 border border-border/60">
+              <div className="relative my-3 rounded-xl overflow-hidden bg-background border border-border">
                 {match && (
-                  <div className="bg-muted/40 px-3 py-1 text-[10px] font-mono text-muted-foreground border-b border-border/40">
+                  <div className="bg-muted/60 px-3 py-1 text-[10px] font-mono text-muted-foreground border-b border-border">
                     {match[1]}
                   </div>
                 )}

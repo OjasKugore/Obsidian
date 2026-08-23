@@ -5,11 +5,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Shown on the viewer page when the URL fragment is "#asym".
  * The user must provide their RSA private key to unwrap the AES key.
- *
- * UX flow:
- *   1. Try IndexedDB first — if an identity key exists, offer one-click unlock
- *   2. Fallback: textarea for manual base64 PKCS8 private key paste
- *   3. "Remember in session" toggle — stashes key in sessionStorage only
+ * Strict monochrome styling matching Obsidian design standards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -130,71 +126,70 @@ export function PrivateKeyUnlock({
   // ── Loading state ──────────────────────────────────────────────────────────
   if (isLoadingKey) {
     return (
-      <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-4 p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Checking for stored identity key…</p>
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-4 p-8 font-mono">
+        <Loader2 className="h-6 w-6 animate-spin text-foreground" />
+        <p className="text-xs text-muted-foreground">Checking for stored identity key…</p>
       </div>
     );
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.35 }}
-      className="w-full max-w-xl mx-auto my-8 flex flex-col gap-5"
+      transition={{ duration: 0.25 }}
+      className="w-full max-w-xl mx-auto my-8 flex flex-col gap-5 font-mono"
     >
       {/* Header Card */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-8 flex flex-col items-center text-center gap-4 border border-purple-500/30 shadow-2xl shadow-purple-500/10">
+      <div className="rounded-lg border border-border bg-card p-6 sm:p-8 flex flex-col items-center text-center gap-4 shadow-xl">
         {/* Icon */}
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-400 shadow-inner">
-          <Lock className="h-8 w-8" />
+        <div className="flex h-14 w-14 items-center justify-center rounded bg-muted border border-border text-foreground">
+          <Lock className="h-7 w-7 text-foreground" />
         </div>
 
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-bold text-foreground">Encrypted for You</h2>
-          <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
+          <h2 className="text-xl font-bold uppercase tracking-tight text-foreground">Encrypted for You</h2>
+          <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
             This paste was encrypted using <strong>RSA-OAEP key wrapping</strong>. The AES
             decryption key is sealed inside and can only be unlocked with your RSA private key.
           </p>
         </div>
 
         {/* Security badges */}
-        <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-medium">
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
-            <ShieldCheck className="h-3 w-3" />
-            RSA-2048-OAEP-SHA256
+        <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono">
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded bg-muted border border-border text-foreground">
+            <ShieldCheck className="h-3 w-3 text-foreground" />
+            RSA-2048-OAEP
           </span>
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">
-            <KeyRound className="h-3 w-3" />
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded bg-muted border border-border text-foreground">
+            <KeyRound className="h-3 w-3 text-foreground" />
             AES-256-GCM
           </span>
         </div>
       </div>
 
       {/* Unlock Options */}
-      <div className="glass-panel rounded-2xl p-5 flex flex-col gap-4 border border-border/60">
-
+      <div className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4 shadow-xl">
         {/* Option 1: Identity key from IndexedDB */}
         {identityKey && !showManualInput && (
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col gap-3"
           >
-            <div className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider">
-              <UserCircle2 className="h-4 w-4 text-purple-400" />
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
+              <UserCircle2 className="h-4 w-4 text-foreground" />
               Identity Key Found
             </div>
 
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/25">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 shrink-0">
-                <KeyRound className="h-5 w-5" />
+            <div className="flex items-center gap-3 p-3 rounded bg-muted/40 border border-border">
+              <div className="flex h-9 w-9 items-center justify-center rounded bg-muted border border-border text-foreground shrink-0">
+                <KeyRound className="h-4 w-4" />
               </div>
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-xs font-semibold text-foreground">RSA-2048 Identity Key</span>
-                <div className="flex items-center gap-1.5 text-[11px] text-purple-300/80 font-mono">
-                  <Fingerprint className="h-3 w-3 shrink-0" />
+                <span className="text-xs font-bold text-foreground">RSA-2048 Identity Key</span>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+                  <Fingerprint className="h-3 w-3 shrink-0 text-foreground" />
                   <span className="truncate">
                     {identityKey.fingerprint.match(/.{1,4}/g)?.join(':') ?? identityKey.fingerprint}
                   </span>
@@ -209,8 +204,7 @@ export function PrivateKeyUnlock({
               id="unlock-with-identity-key-btn"
               onClick={handleUseIdentityKey}
               disabled={busy}
-              variant="glow"
-              className="w-full gap-2 font-semibold"
+              className="w-full gap-2 font-bold font-mono text-xs h-9 bg-foreground text-background hover:opacity-90"
             >
               {busy ? (
                 <>
@@ -238,7 +232,7 @@ export function PrivateKeyUnlock({
         {/* Option 2: Manual private key input */}
         {showManualInput && (
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col gap-3"
           >
@@ -246,7 +240,7 @@ export function PrivateKeyUnlock({
               <button
                 type="button"
                 onClick={() => setShowManualInput(false)}
-                className="flex items-center gap-1.5 text-[11px] text-primary hover:underline self-start"
+                className="flex items-center gap-1.5 text-[11px] text-foreground hover:underline self-start"
               >
                 ← Use my stored identity key
               </button>
@@ -255,9 +249,9 @@ export function PrivateKeyUnlock({
             <div className="flex items-center justify-between">
               <label
                 htmlFor="private-key-textarea"
-                className="text-xs font-semibold text-foreground flex items-center gap-2"
+                className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2"
               >
-                <KeyRound className="h-4 w-4 text-purple-400" />
+                <KeyRound className="h-4 w-4 text-foreground" />
                 Paste Your RSA Private Key
               </label>
               <button
@@ -270,7 +264,7 @@ export function PrivateKeyUnlock({
               </button>
             </div>
 
-            <div className="relative rounded-xl border border-border/60 bg-background/40 focus-within:border-primary/50 transition-all">
+            <div className="relative rounded border border-border bg-background focus-within:border-foreground/50 transition-all">
               <textarea
                 id="private-key-textarea"
                 value={manualKeyValue}
@@ -278,10 +272,10 @@ export function PrivateKeyUnlock({
                 placeholder="Paste your base64-encoded RSA-2048 PKCS8 private key here..."
                 rows={6}
                 spellCheck={false}
-                className={`w-full resize-none bg-transparent border-0 font-mono text-[11px] leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none p-3 ${
+                className={`w-full resize-none bg-transparent border-0 font-mono text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none p-3 ${
                   showKeyText ? '' : 'text-transparent [text-shadow:0_0_6px_rgba(255,255,255,0.3)]'
                 }`}
-                style={!showKeyText ? { WebkitTextSecurity: 'disc' } as React.CSSProperties : undefined}
+                style={!showKeyText ? ({ WebkitTextSecurity: 'disc' } as React.CSSProperties) : undefined}
               />
             </div>
 
@@ -292,10 +286,10 @@ export function PrivateKeyUnlock({
                 id="remember-session-toggle"
                 checked={rememberInSession}
                 onChange={(e) => setRememberInSession(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background/80 cursor-pointer"
+                className="h-3.5 w-3.5 rounded border-border text-foreground accent-foreground bg-background cursor-pointer"
               />
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                <span className="text-xs font-medium text-foreground">
                   Remember in session
                 </span>
                 <span className="text-[10px] text-muted-foreground">
@@ -308,8 +302,7 @@ export function PrivateKeyUnlock({
               id="unlock-with-manual-key-btn"
               onClick={handleManualUnlock}
               disabled={busy || !manualKeyValue.trim()}
-              variant="glow"
-              className="w-full gap-2 font-semibold"
+              className="w-full gap-2 font-bold font-mono text-xs h-9 bg-foreground text-background hover:opacity-90"
             >
               {busy ? (
                 <>
@@ -329,9 +322,9 @@ export function PrivateKeyUnlock({
         {/* Error display */}
         {errorToShow && (
           <motion.div
-            initial={{ opacity: 0, y: -6 }}
+            initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-2.5 p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs"
+            className="flex items-start gap-2.5 p-3 rounded bg-destructive/10 border border-destructive/25 text-destructive text-xs"
           >
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{errorToShow}</span>
@@ -340,10 +333,12 @@ export function PrivateKeyUnlock({
       </div>
 
       {/* Security notice */}
-      <p className="text-center text-[11px] text-muted-foreground/60 leading-relaxed px-4">
+      <p className="text-center text-[10px] text-muted-foreground leading-relaxed px-4">
         Your private key never leaves your browser. The AES decryption key is unwrapped in-memory
         using SubtleCrypto and immediately discarded after decryption.
       </p>
     </motion.div>
   );
 }
+
+export default PrivateKeyUnlock;
