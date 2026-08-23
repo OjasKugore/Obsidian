@@ -76,6 +76,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
   };
 
   const isShamir = result.isShamir && result.shardUrls && result.shardUrls.length > 0;
+  const isAsymmetric = result.isAsymmetric === true;
 
   return (
     <motion.div
@@ -99,9 +100,13 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
             </div>
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                {isShamir ? 'Paste Key Split & Distributed' : 'Paste Encrypted & Stored'}
+                {isShamir
+                  ? 'Paste Key Split & Distributed'
+                  : isAsymmetric
+                  ? 'Paste Encrypted for Recipient'
+                  : 'Paste Encrypted & Stored'}
                 <Badge variant={isShamir ? 'glow' : 'success'} className="text-[11px]">
-                  {isShamir ? `${result.threshold}-of-${result.totalShares} SSS` : 'Active'}
+                  {isShamir ? `${result.threshold}-of-${result.totalShares} SSS` : isAsymmetric ? 'RSA-OAEP' : 'Active'}
                 </Badge>
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -218,9 +223,15 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
               <span>Encrypted Share Link</span>
-              <span className="text-[11px] font-normal lowercase text-emerald-400 flex items-center gap-1">
-                <Key className="h-3 w-3" /> Key in #hash fragment
-              </span>
+              {isAsymmetric ? (
+                <span className="text-[11px] font-normal lowercase text-purple-400 flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3" /> RSA-OAEP · No key in URL
+                </span>
+              ) : (
+                <span className="text-[11px] font-normal lowercase text-emerald-400 flex items-center gap-1">
+                  <Key className="h-3 w-3" /> Key in #hash fragment
+                </span>
+              )}
             </label>
             <div className="flex items-center gap-2 p-2 rounded-2xl bg-background/80 border border-border/80 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
               <input
@@ -260,18 +271,35 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
               </a>
             </div>
 
-            {/* Standard Zero-Knowledge Callout */}
-            <div className="rounded-2xl bg-blue-500/5 border border-blue-500/15 p-4 text-xs text-muted-foreground flex items-start gap-3 mt-2">
-              <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
-                <Key className="h-4 w-4" />
+            {/* Zero-Knowledge / RSA-OAEP Callout */}
+            {isAsymmetric ? (
+              <div className="rounded-2xl bg-purple-500/5 border border-purple-500/15 p-4 text-xs text-muted-foreground flex items-start gap-3 mt-2">
+                <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 shrink-0 mt-0.5">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-foreground">RSA-OAEP Recipient Encryption</span>
+                  <p className="leading-relaxed text-[11px]">
+                    The AES-256 key is sealed with the recipient&apos;s RSA-2048 public key and stored in{' '}
+                    <code className="font-mono bg-purple-500/10 px-1 py-0.5 rounded text-purple-300">adata[4]</code>.
+                    The URL ends in <code className="font-mono bg-purple-500/10 px-1 py-0.5 rounded text-purple-300">#asym</code> —{' '}
+                    <strong>no decryption key is in the URL</strong>. Only the holder of the matching private key can decrypt.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">Zero-Knowledge Architecture</span>
-                <p className="leading-relaxed text-[11px]">
-                  The decryption key <code className="font-mono bg-blue-500/10 px-1 py-0.5 rounded text-blue-300">#{result.rawKeyBase58.slice(0, 8)}...</code> is located after the URL hash fragment. Browsers <strong>never</strong> send hash fragments to web servers, guaranteeing only holders of this link can decrypt your content.
-                </p>
+            ) : (
+              <div className="rounded-2xl bg-blue-500/5 border border-blue-500/15 p-4 text-xs text-muted-foreground flex items-start gap-3 mt-2">
+                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
+                  <Key className="h-4 w-4" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-foreground">Zero-Knowledge Architecture</span>
+                  <p className="leading-relaxed text-[11px]">
+                    The decryption key <code className="font-mono bg-blue-500/10 px-1 py-0.5 rounded text-blue-300">#{result.rawKeyBase58.slice(0, 8)}...</code> is located after the URL hash fragment. Browsers <strong>never</strong> send hash fragments to web servers, guaranteeing only holders of this link can decrypt your content.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

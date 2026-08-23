@@ -14,7 +14,6 @@ import {
   MessageSquare,
   Shield,
   Layers,
-  KeyRound,
   Info,
   User,
   Users,
@@ -26,6 +25,7 @@ import {
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RecipientKeyInput } from '@/components/editor/RecipientKeyInput';
 import type { Expiry } from '@/lib/api/schemas';
 import type { EncryptionOptions, EncryptionResult } from '@/hooks/usePasteEncryption';
 
@@ -54,14 +54,19 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
 
   // Top-level mutually exclusive delivery mode: 'single' vs 'multiple'
   const [deliveryTarget, setDeliveryTarget] = React.useState<DeliveryTarget>('single');
-  // Single user sub-mode: 'symmetric' (active) vs 'asymmetric' (coming in Phase 2B)
+  // Single user sub-mode: 'symmetric' (active) vs 'asymmetric'
   const [singleSubMode, setSingleSubMode] = React.useState<SingleUserSubMode>('symmetric');
+
+  // Asymmetric RSA-OAEP recipient public key
+  const [recipientPublicKey, setRecipientPublicKey] = React.useState('');
+  const [validRecipientKey, setValidRecipientKey] = React.useState<string | null>(null);
 
   // Shamir Secret Sharing state (active when deliveryTarget === 'multiple')
   const [threshold, setThreshold] = React.useState(2);
   const [totalShares, setTotalShares] = React.useState(3);
 
   const isShamir = deliveryTarget === 'multiple';
+  const isAsymmetric = deliveryTarget === 'single' && singleSubMode === 'asymmetric';
 
   const lineCount = content ? content.split('\n').length : 1;
   const charCount = content.length;
@@ -78,6 +83,11 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     e.preventDefault();
     if (!content.trim() || isLoading) return;
 
+    // Guard: asymmetric mode requires a validated recipient key
+    if (isAsymmetric && !validRecipientKey) {
+      return;
+    }
+
     await onEncrypt(content, {
       formatter,
       expire,
@@ -86,6 +96,8 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
       isShamir,
       threshold,
       totalShares,
+      isAsymmetric,
+      recipientPublicKey: isAsymmetric ? (validRecipientKey ?? '') : undefined,
     });
   };
 
@@ -310,7 +322,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
 
               {/* Sub-mode choices: Symmetric vs Asymmetric */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Symmetric Link Mode (Implemented & Active) */}
+                {/* 1. Symmetric Link Mode */}
                 <div
                   onClick={() => setSingleSubMode('symmetric')}
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-2 ${
@@ -333,17 +345,22 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   </p>
                 </div>
 
-                {/* 2. Asymmetric RSA-OAEP Mode (Placeholder / Coming in Phase 2B) */}
+                {/* 2. Asymmetric RSA-OAEP Mode */}
                 <div
-                  className="p-3.5 rounded-xl border border-dashed border-border/60 bg-muted/20 opacity-75 cursor-not-allowed flex flex-col gap-2 relative"
+                  onClick={() => setSingleSubMode('asymmetric')}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-2 ${
+                    singleSubMode === 'asymmetric'
+                      ? 'bg-purple-500/10 border-purple-500/40 ring-1 ring-purple-500/30'
+                      : 'bg-background/40 border-border/60 hover:border-border'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                       <ShieldCheck className="h-4 w-4 text-purple-400" />
                       <span>Asymmetric RSA-OAEP</span>
                     </div>
-                    <Badge variant="outline" className="text-[9px] py-0 px-1.5 text-muted-foreground border-purple-500/40">
-                      Phase 2B (Next)
+                    <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-purple-500/50 text-purple-300">
+                      Zero-URL-Key
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -351,6 +368,26 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   </p>
                 </div>
               </div>
+
+              {/* Asymmetric mode: recipient key input */}
+              <AnimatePresence>
+                {singleSubMode === 'asymmetric' && (
+                  <motion.div
+                    key="asym-input"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <RecipientKeyInput
+                      value={recipientPublicKey}
+                      onChange={setRecipientPublicKey}
+                      onKeyChange={setValidRecipientKey}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : (
             /* ── Multiple Users Configuration: Shamir SSS Quorum ─────────── */
@@ -526,18 +563,40 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             type="submit"
             size="lg"
             variant="glow"
-            disabled={!content.trim() || isLoading}
+            disabled={
+              !content.trim() ||
+              isLoading ||
+              (isAsymmetric && !validRecipientKey)
+            }
             className="w-full md:w-auto min-w-[200px] font-semibold gap-2 transition-all shadow-lg"
           >
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>{isShamir ? 'Splitting & Encrypting...' : 'Encrypting & Storing...'}</span>
+                <span>
+                  {isShamir
+                    ? 'Splitting & Encrypting...'
+                    : isAsymmetric
+                    ? 'Wrapping Key & Encrypting...'
+                    : 'Encrypting & Storing...'}
+                </span>
               </>
             ) : (
               <>
-                {isShamir ? <Layers className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                <span>{isShamir ? `Encrypt & Split (${threshold}/${totalShares})` : 'Encrypt & Share'}</span>
+                {isShamir ? (
+                  <Layers className="h-4 w-4" />
+                ) : isAsymmetric ? (
+                  <ShieldCheck className="h-4 w-4" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
+                <span>
+                  {isShamir
+                    ? `Encrypt & Split (${threshold}/${totalShares})`
+                    : isAsymmetric
+                    ? 'Encrypt for Recipient'
+                    : 'Encrypt & Share'}
+                </span>
               </>
             )}
           </Button>

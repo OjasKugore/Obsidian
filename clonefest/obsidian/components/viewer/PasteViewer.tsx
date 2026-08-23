@@ -16,9 +16,11 @@ import {
   Eye,
   Layers,
   Sparkles,
+  KeyRound,
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
 import { ShardQuorumPanel } from '@/components/viewer/ShardQuorumPanel';
+import { PrivateKeyUnlock } from '@/components/viewer/PrivateKeyUnlock';
 import { CommentSection } from '@/components/viewer/CommentSection';
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
@@ -46,6 +48,9 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     loadedShards,
     isQuorumNeeded,
     addShard,
+    isAsymmetric,
+    isAwaitingPrivateKey,
+    decryptWithPrivateKey,
   } = usePasteDecryption(pasteId, true);
 
   const [copied, setCopied] = React.useState(false);
@@ -96,6 +101,17 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         onAddShard={addShard}
         isDecrypting={isDecrypting}
         error={error}
+      />
+    );
+  }
+
+  // ── Asymmetric RSA-OAEP: awaiting private key ────────────────────────────────
+  if (isAsymmetric && isAwaitingPrivateKey) {
+    return (
+      <PrivateKeyUnlock
+        onUnlock={decryptWithPrivateKey}
+        decryptError={error}
+        isDecrypting={isDecrypting}
       />
     );
   }
@@ -188,6 +204,21 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
       transition={{ duration: 0.4 }}
       className="w-full max-w-4xl mx-auto flex flex-col gap-4 animate-decrypt-reveal"
     >
+      {/* Asymmetric RSA-OAEP success banner if applicable */}
+      {isAsymmetric && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 shrink-0 text-purple-400" />
+            <span>
+              <strong>RSA-OAEP Unlocked:</strong> The AES-256 key was unwrapped using your RSA-2048 private key. Decryption completed in-browser.
+            </span>
+          </div>
+          <Badge variant="outline" className="shrink-0 text-[10px] border-purple-500/40 text-purple-300">
+            Asymmetric
+          </Badge>
+        </div>
+      )}
+
       {/* Shamir Quorum Banner if applicable */}
       {isShamir && (
         <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs font-medium">

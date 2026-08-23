@@ -6,9 +6,10 @@ import { useTheme } from 'next-themes';
 import { ShieldCheck, Moon, Sun, Lock, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { IdentityPanel } from '@/components/header/IdentityPanel';
 
 export function Header() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -71,6 +72,9 @@ export function Header() {
               <span className="hidden sm:inline">New Paste</span>
             </Button>
           </Link>
+
+          {/* Identity key panel */}
+          <IdentityPanel />
 
           {/* Theme switcher */}
           {mounted && (

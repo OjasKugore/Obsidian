@@ -7,6 +7,7 @@ import {
   combineShards,
   extractShardFromUrl,
 } from '@/lib/crypto/shamir';
+import { unwrapAESKey } from '@/lib/crypto/asymmetric';
 import type { GetPasteResponse } from '@/lib/api/schemas';
 
 export interface DecryptionState {
@@ -27,6 +28,10 @@ export interface DecryptionState {
   totalShards: number;
   loadedShards: { index: number; shardString: string }[];
   isQuorumNeeded: boolean;
+
+  // Asymmetric RSA-OAEP State
+  isAsymmetric: boolean;
+  isAwaitingPrivateKey: boolean;
 }
 
 export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
@@ -50,6 +55,8 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     totalShards: 2,
     loadedShards: [],
     isQuorumNeeded: false,
+    isAsymmetric: false,
+    isAwaitingPrivateKey: false,
   });
 
   const decryptWithKey = useCallback(
@@ -59,8 +66,10 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     ) => {
       setState((prev) => ({ ...prev, isDecrypting: true, error: null }));
       try {
+        console.log('[decryptWithKey] Decrypting ciphertext with key bytes:', key.length);
         const decrypted = await decrypt(data.ct, data.adata, key);
         const formatter = data.adata[1] || 'plaintext';
+        console.log('[decryptWithKey] SUCCESS! Plaintext length:', decrypted.length);
 
         setState((prev) => ({
           ...prev,
@@ -75,8 +84,10 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
           isTimeLocked: false,
           timelockedUntil: null,
           isQuorumNeeded: false,
+          isAwaitingPrivateKey: false,
         }));
       } catch (err: unknown) {
+        console.error('[decryptWithKey ERROR]', err);
         const message =
           err instanceof Error
             ? err.message
@@ -226,7 +237,20 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
         return;
       }
 
-      // 4. Standard symmetric decryption
+      // 4. Asymmetric RSA-OAEP mode: #asym sentinel → show private key prompt
+      if (keyFragment === 'asym' || data.meta.recipientMode) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          isDecrypting: false,
+          isAsymmetric: true,
+          isAwaitingPrivateKey: true,
+          meta: data.meta,
+        }));
+        return;
+      }
+
+      // 5. Standard symmetric decryption
       setState((prev) => ({ ...prev, isLoading: false, isDecrypting: true }));
 
       let rawKey: Uint8Array;
@@ -291,6 +315,63 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     [attemptShamirReconstruction]
   );
 
+  /**
+   * Called from PrivateKeyUnlock when the user provides their RSA private key.
+   * Unwraps the AES key from adata[4] and decrypts the paste.
+   */
+  const decryptWithPrivateKey = useCallback(
+    async (privateKey: CryptoKey) => {
+      const data = fetchedPasteDataRef.current;
+      console.log('[decryptWithPrivateKey] Unlocking with privateKey. Fetched paste data:', data);
+      if (!data) {
+        setState((prev) => ({
+          ...prev,
+          error: 'Paste data not loaded yet. Please refresh.',
+        }));
+        return;
+      }
+
+      const wrappedKeyBase64 = data.adata[4];
+      console.log('[decryptWithPrivateKey] adata[4] (wrappedKeyBase64):', wrappedKeyBase64 ? wrappedKeyBase64.slice(0, 30) + '...' : undefined);
+      if (!wrappedKeyBase64 || typeof wrappedKeyBase64 !== 'string') {
+        setState((prev) => ({
+          ...prev,
+          error: 'This paste is marked as asymmetric mode but adata[4] is missing.',
+        }));
+        return;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isDecrypting: true,
+        isAwaitingPrivateKey: false,
+        error: null,
+      }));
+
+      try {
+        console.log('[decryptWithPrivateKey] Unwrapping AES key with RSA private key...');
+        const rawAESKey = await unwrapAESKey(wrappedKeyBase64, privateKey);
+        console.log('[decryptWithPrivateKey] AES key unwrapped successfully! Raw key bytes:', rawAESKey.length);
+        await decryptWithKey(rawAESKey, data);
+      } catch (err: unknown) {
+        console.error('[decryptWithPrivateKey ERROR]', err);
+        let message = 'Decryption failed — wrong private key or corrupted data.';
+        if (err instanceof Error && err.name === 'OperationError') {
+          message = 'Key Mismatch: Your current RSA private key does not match the public key used to encrypt this paste. (Did you regenerate your keypair after creating this paste?)';
+        } else if (err instanceof Error) {
+          message = err.message;
+        }
+        setState((prev) => ({
+          ...prev,
+          isDecrypting: false,
+          isAwaitingPrivateKey: true, // re-show the prompt
+          error: message,
+        }));
+      }
+    },
+    [decryptWithKey]
+  );
+
   useEffect(() => {
     if (autoFetch && pasteId && !fetchedRef.current) {
       fetchedRef.current = true;
@@ -301,6 +382,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
   return {
     ...state,
     addShard,
+    decryptWithPrivateKey,
     refetch: () => {
       fetchedRef.current = false;
       shardMapRef.current.clear();
