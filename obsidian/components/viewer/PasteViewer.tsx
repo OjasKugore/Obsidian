@@ -66,6 +66,12 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
   const canCollab = Boolean(plaintext && rawKey && !isAsymmetric && !isBurned);
 
+  const handleRemoteLock = React.useCallback(() => {
+    setIsLocked(true);
+    setIsCollabEditing(false);
+    setFinalizedNotice(true);
+  }, []);
+
   const {
     isConnected: isCollabConnected,
     isConnecting: isCollabConnecting,
@@ -85,11 +91,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     formatter,
     isAsymmetric,
     enabled: canCollab && !isLocked,
-    onRemoteLock: () => {
-      setIsLocked(true);
-      setIsCollabEditing(false);
-      setFinalizedNotice(true);
-    },
+    onRemoteLock: handleRemoteLock,
   });
 
   const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');

@@ -69,6 +69,15 @@ export function useCollab({
   const [error, setError] = useState<string | null>(null);
 
   const tabIdRef = useRef<string>('');
+  const myPeerRef = useRef<Collaborator | null>(null);
+  const onRemoteContentRef = useRef(onRemoteContent);
+  const onRemoteLockRef = useRef(onRemoteLock);
+
+  useEffect(() => {
+    onRemoteContentRef.current = onRemoteContent;
+    onRemoteLockRef.current = onRemoteLock;
+  }, [onRemoteContent, onRemoteLock]);
+
   const pusherRef = useRef<PusherClient | null>(null);
   const channelRef = useRef<PresenceChannel | null>(null);
   const bcRef = useRef<BroadcastChannel | null>(null);
@@ -85,14 +94,17 @@ export function useCollab({
 
     if (!tabIdRef.current) {
       tabIdRef.current = Math.random().toString(36).slice(2, 9);
+      myPeerRef.current = generateRandomPeer(tabIdRef.current);
     }
     const tabId = tabIdRef.current;
-    const myPeer = generateRandomPeer(tabId);
+    const myPeer = myPeerRef.current!;
 
     const timer = setTimeout(() => {
       if (!cancelled) {
         setCurrentUser(myPeer);
-        setCollaborators([myPeer]);
+        setCollaborators((prev) =>
+          prev.some((p) => p.id === myPeer.id) ? prev : [myPeer, ...prev]
+        );
         setIsConnected(true);
       }
     }, 0);
@@ -139,7 +151,7 @@ export function useCollab({
               if (!cancelled) {
                 isBroadcastingRef.current = true;
                 setContent(decrypted);
-                if (onRemoteContent) onRemoteContent(decrypted);
+                if (onRemoteContentRef.current) onRemoteContentRef.current(decrypted);
               }
             } catch (err) {
               console.warn('[useCollab BC] Decrypt failed:', err);
@@ -150,7 +162,7 @@ export function useCollab({
             if (!cancelled) {
               isBroadcastingRef.current = true;
               setContent(msg.finalContent);
-              if (onRemoteLock) onRemoteLock(msg.finalContent);
+              if (onRemoteLockRef.current) onRemoteLockRef.current(msg.finalContent);
             }
           }
 
@@ -268,7 +280,7 @@ export function useCollab({
             if (!cancelled) {
               isBroadcastingRef.current = true;
               setContent(decrypted);
-              if (onRemoteContent) onRemoteContent(decrypted);
+              if (onRemoteContentRef.current) onRemoteContentRef.current(decrypted);
             }
           } catch (decErr) {
             console.warn('[useCollab Pusher] Decrypt failed:', decErr);
@@ -294,7 +306,7 @@ export function useCollab({
           if (!cancelled) {
             isBroadcastingRef.current = true;
             setContent(data.finalContent);
-            if (onRemoteLock) onRemoteLock(data.finalContent);
+            if (onRemoteLockRef.current) onRemoteLockRef.current(data.finalContent);
           }
         });
         channel.bind('pusher:subscription_error', (err: unknown) => {
@@ -344,7 +356,7 @@ export function useCollab({
         pusherRef.current = null;
       }
     };
-  }, [enabled, pasteId, rawKey, isAsymmetric, onRemoteContent, onRemoteLock]);
+  }, [enabled, pasteId, rawKey, isAsymmetric]);
 
   // ── Broadcast encrypted text updates ──────────────────────────────────────────
   const broadcastContent = useCallback(
