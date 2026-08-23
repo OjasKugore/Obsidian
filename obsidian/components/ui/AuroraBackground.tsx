@@ -20,24 +20,24 @@ export function AuroraBackground({
       )}
       {...props}
     >
-      {/* Soft textured atmospheric background */}
+      {/* Soft textured atmospheric background for Charcoal & Ivory theme */}
       <div
         className="pointer-events-none fixed inset-0 z-0 opacity-100 overflow-hidden"
         aria-hidden="true"
       >
-        {/* Soft top ambient lighting */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.06)_0%,rgba(14,165,233,0.03)_35%,transparent_70%)] blur-3xl pointer-events-none" />
+        {/* Soft warm ivory & slate ambient top glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-[radial-gradient(ellipse_at_top,rgba(255,255,240,0.05)_0%,rgba(65,85,99,0.18)_40%,transparent_70%)] blur-3xl pointer-events-none" />
 
         {/* Soft corner atmospheric glow */}
-        <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.03)_0%,transparent_60%)] blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,240,0.03)_0%,transparent_60%)] blur-3xl pointer-events-none" />
 
         {/* Tactile micro-dot texture */}
         <div
-          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.05] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none"
+          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,240,0.12)_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none"
         />
 
         {/* Soft vignette for comfortable eye focus */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.35)_100%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.25)_100%)] pointer-events-none" />
       </div>
 
       {/* Foreground Content */}

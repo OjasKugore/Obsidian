@@ -66,7 +66,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-[9999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden bg-white"
           style={{
-            backgroundColor: isInverted ? '#15171d' : '#ffffff',
+            backgroundColor: isInverted ? '#36454F' : '#ffffff',
             transition: 'background-color 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
@@ -97,14 +97,14 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                 {/* Shackle: starts open/raised, then snaps down into locked position */}
                 <motion.path
                   d="M 6.8 11.5 V 7 C 6.8 4.128 9.128 1.8 12 1.8 C 14.872 1.8 17.2 4.128 17.2 7 V 11.5"
-                  stroke={isInverted ? '#ffffff' : '#000000'}
+                  stroke={isInverted ? '#FFFFF0' : '#36454F'}
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   initial={{ y: -9 }}
                   animate={{
                     y: isLocked ? 0 : -9,
-                    stroke: isInverted ? '#ffffff' : '#000000',
+                    stroke: isInverted ? '#FFFFF0' : '#36454F',
                   }}
                   transition={{
                     y: {
@@ -123,9 +123,9 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                   width="17"
                   height="12"
                   rx="3.5"
-                  fill={isInverted ? '#ffffff' : '#000000'}
+                  fill={isInverted ? '#FFFFF0' : '#36454F'}
                   animate={{
-                    fill: isInverted ? '#ffffff' : '#000000',
+                    fill: isInverted ? '#FFFFF0' : '#36454F',
                   }}
                   transition={{
                     fill: { duration: 0.55, ease: 'easeInOut' },
@@ -137,9 +137,9 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                   cx="12"
                   cy="15.2"
                   r="1.35"
-                  fill={isInverted ? '#15171d' : '#ffffff'}
+                  fill={isInverted ? '#36454F' : '#ffffff'}
                   animate={{
-                    fill: isInverted ? '#15171d' : '#ffffff',
+                    fill: isInverted ? '#36454F' : '#ffffff',
                   }}
                   transition={{
                     fill: { duration: 0.55, ease: 'easeInOut' },
@@ -147,11 +147,11 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                 />
                 <motion.path
                   d="M 12 16.2 V 18.8"
-                  stroke={isInverted ? '#15171d' : '#ffffff'}
+                  stroke={isInverted ? '#36454F' : '#ffffff'}
                   strokeWidth="1.7"
                   strokeLinecap="round"
                   animate={{
-                    stroke: isInverted ? '#15171d' : '#ffffff',
+                    stroke: isInverted ? '#36454F' : '#ffffff',
                   }}
                   transition={{
                     stroke: { duration: 0.55, ease: 'easeInOut' },
@@ -160,7 +160,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
               </svg>
             </motion.div>
 
-            {/* "OBSIDIAN" Typography - Bold Modern Sans */}
+            {/* "OBSIDIAN" Typography - Bold Modern Sans in Warm Ivory */}
             <div className="h-10 flex items-center justify-center overflow-hidden">
               <motion.span
                 initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
@@ -173,7 +173,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                   duration: 0.7,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="font-sans text-xl sm:text-2xl font-black tracking-[0.35em] uppercase text-white/95"
+                className="font-sans text-xl sm:text-2xl font-black tracking-[0.35em] uppercase text-[#FFFFF0]"
               >
                 Obsidian
               </motion.span>

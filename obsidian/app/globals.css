@@ -29,30 +29,30 @@
   }
 
   .dark {
-    /* Rich Charcoal & Graphite Grey Tones (Easy on the eyes, tactile & textured) */
-    --background: 224 14% 10%;         /* #15171d - deep velvety graphite grey */
-    --foreground: 218 20% 92%;         /* #e6e9ee - soft platinum silver text */
-    --card: 224 13% 14%;               /* #1f2128 - rich graphite card */
-    --card-foreground: 218 20% 92%;
-    --popover: 224 13% 14%;
-    --popover-foreground: 218 20% 92%;
-    --primary: 218 20% 92%;
-    --primary-foreground: 224 14% 10%;
-    --secondary: 224 12% 20%;          /* #2c2f39 - elevated slate grey */
-    --secondary-foreground: 218 20% 92%;
-    --muted: 224 12% 18%;             /* #272a33 - mid graphite grey */
-    --muted-foreground: 220 10% 64%;   /* #9ba1af - warm silver grey */
-    --accent: 224 12% 22%;             /* #313540 */
-    --accent-foreground: 218 20% 92%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 224 11% 25%;            /* #353946 - distinct tactile slate border */
-    --input: 224 11% 22%;
-    --ring: 218 20% 92%;
+    /* Charcoal Grey #36454F Background with Warm Ivory #FFFFF0 Lettering */
+    --background: 204 19% 26%;         /* #36454F - classic rich charcoal grey */
+    --foreground: 60 100% 97%;         /* #FFFFF0 - warm ivory lettering */
+    --card: 204 20% 21%;               /* #2b373f - deep charcoal card */
+    --card-foreground: 60 100% 97%;    /* #FFFFF0 - warm ivory */
+    --popover: 204 20% 21%;
+    --popover-foreground: 60 100% 97%;
+    --primary: 60 100% 97%;            /* #FFFFF0 */
+    --primary-foreground: 204 19% 26%; /* #36454F */
+    --secondary: 204 18% 32%;          /* #435562 - elevated charcoal */
+    --secondary-foreground: 60 100% 97%;
+    --muted: 204 18% 30%;             /* #3e4f5b - mid charcoal slate */
+    --muted-foreground: 60 20% 82%;    /* #dfdfcf - soft warm ivory silver */
+    --accent: 204 18% 34%;             /* #485b69 */
+    --accent-foreground: 60 100% 97%;
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 60 100% 97%;
+    --border: 204 17% 36%;            /* #4c5f6e - soft charcoal border */
+    --input: 204 18% 30%;
+    --ring: 60 100% 97%;
 
-    --glass-bg: rgba(31, 33, 40, 0.88);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-glow: rgba(255, 255, 255, 0.04);
+    --glass-bg: rgba(43, 55, 63, 0.90);
+    --glass-border: rgba(255, 255, 240, 0.16);
+    --glass-glow: rgba(255, 255, 240, 0.05);
   }
 }
 
@@ -73,7 +73,7 @@
   }
 
   .soft-shadow {
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 240, 0.08);
   }
 }
 
