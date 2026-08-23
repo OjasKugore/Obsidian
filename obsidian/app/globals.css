@@ -29,29 +29,30 @@
   }
 
   .dark {
-    --background: 224 28% 6%;          /* #090c13 - deep soft obsidian */
-    --foreground: 210 30% 96%;         /* #f1f5f9 - soft off-white text */
-    --card: 224 22% 9%;               /* #10141d - rich dark card */
-    --card-foreground: 210 30% 96%;
-    --popover: 224 22% 9%;
-    --popover-foreground: 210 30% 96%;
-    --primary: 210 30% 96%;
-    --primary-foreground: 224 28% 6%;
-    --secondary: 224 16% 14%;
-    --secondary-foreground: 210 30% 96%;
-    --muted: 224 16% 13%;             /* #171b26 */
-    --muted-foreground: 217 14% 65%;   /* #94a3b8 - soft slate */
-    --accent: 224 16% 16%;
-    --accent-foreground: 210 30% 96%;
+    /* Rich Charcoal & Graphite Grey Tones (Easy on the eyes, tactile & textured) */
+    --background: 224 14% 10%;         /* #15171d - deep velvety graphite grey */
+    --foreground: 218 20% 92%;         /* #e6e9ee - soft platinum silver text */
+    --card: 224 13% 14%;               /* #1f2128 - rich graphite card */
+    --card-foreground: 218 20% 92%;
+    --popover: 224 13% 14%;
+    --popover-foreground: 218 20% 92%;
+    --primary: 218 20% 92%;
+    --primary-foreground: 224 14% 10%;
+    --secondary: 224 12% 20%;          /* #2c2f39 - elevated slate grey */
+    --secondary-foreground: 218 20% 92%;
+    --muted: 224 12% 18%;             /* #272a33 - mid graphite grey */
+    --muted-foreground: 220 10% 64%;   /* #9ba1af - warm silver grey */
+    --accent: 224 12% 22%;             /* #313540 */
+    --accent-foreground: 218 20% 92%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 224 16% 16%;            /* #1f2533 - soft refined border */
-    --input: 224 16% 16%;
-    --ring: 210 30% 96%;
+    --border: 224 11% 25%;            /* #353946 - distinct tactile slate border */
+    --input: 224 11% 22%;
+    --ring: 218 20% 92%;
 
-    --glass-bg: rgba(16, 20, 29, 0.82);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-glow: rgba(99, 102, 241, 0.04);
+    --glass-bg: rgba(31, 33, 40, 0.88);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-glow: rgba(255, 255, 255, 0.04);
   }
 }
 
@@ -72,7 +73,7 @@
   }
 
   .soft-shadow {
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
 }
 

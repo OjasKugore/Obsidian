@@ -66,7 +66,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-[9999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden bg-white"
           style={{
-            backgroundColor: isInverted ? '#09090b' : '#ffffff',
+            backgroundColor: isInverted ? '#15171d' : '#ffffff',
             transition: 'background-color 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
@@ -137,9 +137,9 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                   cx="12"
                   cy="15.2"
                   r="1.35"
-                  fill={isInverted ? '#09090b' : '#ffffff'}
+                  fill={isInverted ? '#15171d' : '#ffffff'}
                   animate={{
-                    fill: isInverted ? '#09090b' : '#ffffff',
+                    fill: isInverted ? '#15171d' : '#ffffff',
                   }}
                   transition={{
                     fill: { duration: 0.55, ease: 'easeInOut' },
@@ -147,11 +147,11 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                 />
                 <motion.path
                   d="M 12 16.2 V 18.8"
-                  stroke={isInverted ? '#09090b' : '#ffffff'}
+                  stroke={isInverted ? '#15171d' : '#ffffff'}
                   strokeWidth="1.7"
                   strokeLinecap="round"
                   animate={{
-                    stroke: isInverted ? '#09090b' : '#ffffff',
+                    stroke: isInverted ? '#15171d' : '#ffffff',
                   }}
                   transition={{
                     stroke: { duration: 0.55, ease: 'easeInOut' },

@@ -274,9 +274,9 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
           </div>
 
           {/* Editor Body with Line Numbers */}
-          <div className="flex flex-grow min-h-[440px] relative overflow-hidden bg-card">
+          <div className="flex flex-grow min-h-[440px] relative overflow-hidden bg-card/80">
             {/* Line Numbers Gutter */}
-            <div className="w-12 shrink-0 bg-muted/20 border-r border-border py-4 flex flex-col items-end pr-2 text-muted-foreground/60 font-mono text-xs select-none">
+            <div className="w-12 shrink-0 bg-muted/40 border-r border-border py-4 flex flex-col items-end pr-2.5 text-muted-foreground/70 font-mono text-xs select-none">
               {Array.from({ length: Math.max(lineCount, 16) }).map((_, i) => (
                 <div key={i} className="leading-relaxed">
                   {i < lineCount ? i + 1 : ''}
@@ -285,7 +285,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative bg-background/50">
               {formatter === 'markdown' && editorTab === 'preview' ? (
                 <div className="w-full h-full min-h-[440px] p-4 text-foreground overflow-y-auto">
                   <MarkdownPreview content={content} />
@@ -300,7 +300,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   required
                   spellCheck={false}
                   autoFocus
-                  className="w-full h-full min-h-[440px] bg-transparent text-foreground font-mono text-xs sm:text-sm p-4 leading-relaxed focus:outline-none border-none resize-none whitespace-pre placeholder:text-muted-foreground/40"
+                  className="w-full h-full min-h-[440px] bg-transparent text-foreground font-mono text-xs sm:text-sm p-4 leading-relaxed focus:outline-none border-none resize-none whitespace-pre placeholder:text-muted-foreground/50 selection:bg-muted"
                 />
               )}
             </div>
