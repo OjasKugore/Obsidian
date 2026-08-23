@@ -300,17 +300,29 @@ export function useCollab({
       clearTimeout(timer);
 
       if (bc) {
-        bc.postMessage({ type: 'peer-leave', senderId: tabId, name: myPeer.name });
-        bc.close();
+        try {
+          bc.postMessage({ type: 'peer-leave', senderId: tabId, name: myPeer.name });
+          bc.close();
+        } catch {
+          // ignore if channel was already closed
+        }
         bcRef.current = null;
       }
 
       if (channelRef.current && pusherRef.current) {
-        pusherRef.current.unsubscribe(`presence-collab-${pasteId}`);
+        try {
+          pusherRef.current.unsubscribe(`presence-collab-${pasteId}`);
+        } catch {
+          // ignore
+        }
         channelRef.current = null;
       }
       if (pusherRef.current) {
-        pusherRef.current.disconnect();
+        try {
+          pusherRef.current.disconnect();
+        } catch {
+          // ignore
+        }
         pusherRef.current = null;
       }
     };
@@ -350,15 +362,23 @@ export function useCollab({
 
           // 1. Send to local browser tabs via BroadcastChannel
           if (bcRef.current) {
-            bcRef.current.postMessage({
-              type: 'client-delta',
-              ...message,
-            });
+            try {
+              bcRef.current.postMessage({
+                type: 'client-delta',
+                ...message,
+              });
+            } catch {
+              // ignore if channel closed
+            }
           }
 
           // 2. Send to remote peers via Pusher presence channel
           if (channelRef.current) {
-            channelRef.current.trigger('client-delta', message);
+            try {
+              channelRef.current.trigger('client-delta', message);
+            } catch {
+              // ignore
+            }
           }
         } catch (encErr) {
           console.error('[useCollab] Failed to encrypt delta:', encErr);
@@ -388,14 +408,22 @@ export function useCollab({
       };
 
       if (bcRef.current) {
-        bcRef.current.postMessage({
-          type: 'client-typing',
-          ...message,
-        });
+        try {
+          bcRef.current.postMessage({
+            type: 'client-typing',
+            ...message,
+          });
+        } catch {
+          // ignore
+        }
       }
 
       if (channelRef.current) {
-        channelRef.current.trigger('client-typing', message);
+        try {
+          channelRef.current.trigger('client-typing', message);
+        } catch {
+          // ignore
+        }
       }
     } catch {
       // ignore
@@ -405,15 +433,28 @@ export function useCollab({
   // ── Disconnect / Teardown ─────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
     if (bcRef.current) {
-      bcRef.current.close();
+      try {
+        bcRef.current.postMessage({ type: 'peer-leave', senderId: tabIdRef.current });
+        bcRef.current.close();
+      } catch {
+        // ignore if already closed
+      }
       bcRef.current = null;
     }
     if (channelRef.current && pusherRef.current) {
-      pusherRef.current.unsubscribe(`presence-collab-${pasteId}`);
+      try {
+        pusherRef.current.unsubscribe(`presence-collab-${pasteId}`);
+      } catch {
+        // ignore
+      }
       channelRef.current = null;
     }
     if (pusherRef.current) {
-      pusherRef.current.disconnect();
+      try {
+        pusherRef.current.disconnect();
+      } catch {
+        // ignore
+      }
       pusherRef.current = null;
     }
     setIsConnected(false);
