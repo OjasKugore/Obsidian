@@ -75,6 +75,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     typingUsers,
     content: liveText,
     broadcastContent,
+    broadcastLock,
     broadcastTyping,
     disconnect: disconnectCollab,
   } = useCollab({
@@ -84,6 +85,11 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     formatter,
     isAsymmetric,
     enabled: canCollab && !isLocked,
+    onRemoteLock: () => {
+      setIsLocked(true);
+      setIsCollabEditing(false);
+      setFinalizedNotice(true);
+    },
   });
 
   const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');
@@ -92,14 +98,17 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     if (!rawKey || isFinalizing) return;
     try {
       setIsFinalizing(true);
-      // 1. Re-encrypt current collaborative displayText locally with the rawKey
+      // 1. Broadcast lock event immediately to all other connected tabs/peers
+      broadcastLock(displayText);
+
+      // 2. Re-encrypt current collaborative displayText locally with the rawKey
       const enc = await encrypt(displayText, formatter, {
         burnAfterReading: false,
         openDiscussion: meta?.openDiscussion ?? true,
         customKey: rawKey,
       });
 
-      // 2. Persist updated ciphertext to DB
+      // 3. Persist updated ciphertext to DB
       const res = await fetch(`/api/v1/paste/${pasteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

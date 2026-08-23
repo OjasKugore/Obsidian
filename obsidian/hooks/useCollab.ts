@@ -20,6 +20,7 @@ export interface UseCollabOptions {
   isAsymmetric?: boolean;
   enabled?: boolean;
   onRemoteContent?: (content: string) => void;
+  onRemoteLock?: (finalText: string) => void;
 }
 
 export interface EncryptedDeltaMessage {
@@ -56,6 +57,7 @@ export function useCollab({
   isAsymmetric = false,
   enabled = true,
   onRemoteContent,
+  onRemoteLock,
 }: UseCollabOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -141,6 +143,14 @@ export function useCollab({
               }
             } catch (err) {
               console.warn('[useCollab BC] Decrypt failed:', err);
+            }
+          }
+
+          if (msg.type === 'client-locked' && msg.senderId !== tabId) {
+            if (!cancelled) {
+              isBroadcastingRef.current = true;
+              setContent(msg.finalContent);
+              if (onRemoteLock) onRemoteLock(msg.finalContent);
             }
           }
 
@@ -279,6 +289,14 @@ export function useCollab({
             // ignore
           }
         });
+        channel.bind('client-locked', (data: { senderId: string; finalContent: string }) => {
+          if (!data || data.senderId === tabId) return;
+          if (!cancelled) {
+            isBroadcastingRef.current = true;
+            setContent(data.finalContent);
+            if (onRemoteLock) onRemoteLock(data.finalContent);
+          }
+        });
         channel.bind('pusher:subscription_error', (err: unknown) => {
           console.warn('[useCollab] Pusher subscription error:', err);
           if (!cancelled) {
@@ -326,7 +344,7 @@ export function useCollab({
         pusherRef.current = null;
       }
     };
-  }, [enabled, pasteId, rawKey, isAsymmetric, onRemoteContent]);
+  }, [enabled, pasteId, rawKey, isAsymmetric, onRemoteContent, onRemoteLock]);
 
   // ── Broadcast encrypted text updates ──────────────────────────────────────────
   const broadcastContent = useCallback(
@@ -387,6 +405,32 @@ export function useCollab({
     },
     [rawKey, formatter, isAsymmetric]
   );
+
+  // ── Broadcast Lock & Finalize event to all peers ──────────────────────────────
+  const broadcastLock = useCallback((finalContent: string) => {
+    if (bcRef.current) {
+      try {
+        bcRef.current.postMessage({
+          type: 'client-locked',
+          senderId: tabIdRef.current,
+          finalContent,
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    if (channelRef.current) {
+      try {
+        channelRef.current.trigger('client-locked', {
+          senderId: tabIdRef.current,
+          finalContent,
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
 
   // ── Broadcast typing ping ─────────────────────────────────────────────────────
   const broadcastTyping = useCallback(async () => {
@@ -473,6 +517,7 @@ export function useCollab({
     content,
     error,
     broadcastContent,
+    broadcastLock,
     broadcastTyping,
     disconnect,
   };
