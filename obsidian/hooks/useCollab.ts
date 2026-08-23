@@ -432,9 +432,15 @@ export function useCollab({
     }
   }, []);
 
+  const lastTypingPingRef = useRef(0);
+
   // ── Broadcast typing ping ─────────────────────────────────────────────────────
   const broadcastTyping = useCallback(async () => {
     if (!rawKey || isAsymmetric || !currentUser) return;
+
+    const now = Date.now();
+    if (now - lastTypingPingRef.current < 1200) return;
+    lastTypingPingRef.current = now;
 
     try {
       const payload = JSON.stringify({ name: currentUser.name, isTyping: true });
