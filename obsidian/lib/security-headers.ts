@@ -42,8 +42,8 @@ export function buildCSP(nonce: string): string {
       ...(process.env.NODE_ENV === 'development' ? ["'unsafe-eval'"] : []),
     ],
 
-    // Stylesheets: self + nonce (Tailwind inlines critical CSS in dev)
-    'style-src': ["'self'", `'nonce-${nonce}'`],
+    // Stylesheets: self + nonce + unsafe-inline (for Tailwind, Framer Motion, and dynamic animations)
+    'style-src': ["'self'", "'unsafe-inline'", `'nonce-${nonce}'`],
 
     // Fonts: self only (Geist ships as local font, no CDN needed)
     'font-src': ["'self'"],

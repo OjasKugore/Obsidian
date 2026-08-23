@@ -7,7 +7,6 @@ import { PasteEditor } from '@/components/editor/PasteEditor';
 import { SharePanel } from '@/components/sharing/SharePanel';
 import { usePasteEncryption } from '@/hooks/usePasteEncryption';
 import { AuroraBackground } from '@/components/ui/AuroraBackground';
-import { Sparkles } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,26 +38,25 @@ export default function HomePage() {
       <Header />
 
       {/* Main Staggered Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10 flex flex-col gap-6 sm:gap-8 justify-center">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 justify-center">
         {!result && (
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="flex flex-col items-center text-center gap-3.5 max-w-2xl mx-auto"
+            className="flex flex-col items-center text-center gap-3.5 max-w-3xl mx-auto w-full pt-2"
           >
-            {/* Minimal Eyebrow Pill */}
+            {/* Minimal Eyebrow */}
             <motion.div variants={itemVariants}>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium tracking-wide uppercase bg-primary/10 border border-primary/25 text-primary backdrop-blur-md shadow-sm">
-                <Sparkles className="h-3 w-3 text-primary animate-pulse" />
-                Zero-Knowledge Cryptographic Vault
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-medium tracking-wide uppercase bg-primary/15 border border-primary/30 text-primary-foreground/90 backdrop-blur-md shadow-md">
+                ✦ Zero-Knowledge Cryptographic Vault
               </span>
             </motion.div>
 
             {/* Girard Editorial Headline */}
             <motion.h1
               variants={itemVariants}
-              className="font-girard text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-foreground leading-[1.08] select-none"
+              className="font-girard text-4xl sm:text-6xl font-normal tracking-tight text-white leading-[1.08] select-none drop-shadow-[0_4px_30px_rgba(0,0,0,0.7)]"
             >
               Private notes,{' '}
               <span className="italic text-gradient">unbreakable</span> privacy.
@@ -67,7 +65,7 @@ export default function HomePage() {
             {/* Concise, Uncluttered Subtitle */}
             <motion.p
               variants={itemVariants}
-              className="text-xs sm:text-sm text-muted-foreground max-w-md leading-relaxed font-normal"
+              className="text-xs sm:text-sm text-foreground/80 max-w-md leading-relaxed font-normal"
             >
               Encrypted in your browser using <strong>AES-256-GCM</strong>. Decryption keys exist only in the link hash and never touch the server.
             </motion.p>

@@ -142,3 +142,137 @@ body {
 .animate-decrypt-reveal {
   animation: decryptReveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ── Global Aurora Shader Background Styles ──────────────────────────────── */
+@keyframes driftOrb1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(80px, -60px) scale(1.2);
+  }
+  66% {
+    transform: translate(-50px, 40px) scale(0.9);
+  }
+}
+
+@keyframes driftOrb2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1.1);
+  }
+  33% {
+    transform: translate(-90px, 70px) scale(0.85);
+  }
+  66% {
+    transform: translate(60px, -50px) scale(1.25);
+  }
+}
+
+@keyframes driftOrb3 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(0.95);
+  }
+  50% {
+    transform: translate(70px, 50px) scale(1.2);
+  }
+}
+
+@keyframes waveMotion {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.aurora-sphere-1 {
+  position: fixed;
+  top: -15vh;
+  left: -5vw;
+  width: 60vw;
+  height: 60vw;
+  max-width: 850px;
+  max-height: 850px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.65) 0%, rgba(99, 102, 241, 0.45) 45%, transparent 70%);
+  filter: blur(80px);
+  animation: driftOrb1 22s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.aurora-sphere-2 {
+  position: fixed;
+  top: 10vh;
+  right: -10vw;
+  width: 55vw;
+  height: 55vw;
+  max-width: 800px;
+  max-height: 800px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.6) 0%, rgba(217, 70, 239, 0.45) 40%, transparent 70%);
+  filter: blur(85px);
+  animation: driftOrb2 26s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.aurora-sphere-3 {
+  position: fixed;
+  bottom: -15vh;
+  left: 15vw;
+  width: 55vw;
+  height: 55vw;
+  max-width: 750px;
+  max-height: 750px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.6) 0%, rgba(16, 185, 129, 0.4) 45%, transparent 70%);
+  filter: blur(85px);
+  animation: driftOrb3 24s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.aurora-sphere-4 {
+  position: fixed;
+  top: 45vh;
+  left: -10vw;
+  width: 45vw;
+  height: 45vw;
+  max-width: 650px;
+  max-height: 650px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, rgba(14, 165, 233, 0.35) 45%, transparent 70%);
+  filter: blur(75px);
+  animation: driftOrb1 28s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.aurora-curtain {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.8;
+  background: linear-gradient(
+    130deg,
+    rgba(99, 102, 241, 0.35) 0%,
+    rgba(168, 85, 247, 0.4) 20%,
+    rgba(236, 72, 153, 0.45) 40%,
+    rgba(6, 182, 212, 0.4) 60%,
+    rgba(16, 185, 129, 0.35) 80%,
+    rgba(99, 102, 241, 0.35) 100%
+  );
+  background-size: 350% 350%;
+  animation: waveMotion 20s ease-in-out infinite;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 50%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 50%, transparent 90%);
+  mix-blend-mode: screen;
+}
