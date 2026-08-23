@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
 import { useCollab } from '@/hooks/useCollab';
+import { encrypt } from '@/lib/crypto/cipher';
 import { ShardQuorumPanel } from '@/components/viewer/ShardQuorumPanel';
 import { PrivateKeyUnlock } from '@/components/viewer/PrivateKeyUnlock';
 import { CommentSection } from '@/components/viewer/CommentSection';
@@ -60,6 +61,8 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   const [viewMode, setViewMode] = React.useState<'formatted' | 'raw'>('formatted');
   const [isCollabEditing, setIsCollabEditing] = React.useState(false);
   const [isLocked, setIsLocked] = React.useState(false);
+  const [isFinalizing, setIsFinalizing] = React.useState(false);
+  const [finalizedNotice, setFinalizedNotice] = React.useState(false);
 
   const canCollab = Boolean(plaintext && rawKey && !isAsymmetric && !isBurned);
 
@@ -84,6 +87,43 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   });
 
   const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');
+
+  const handleLockAndFinalize = async () => {
+    if (!rawKey || isFinalizing) return;
+    try {
+      setIsFinalizing(true);
+      // 1. Re-encrypt current collaborative displayText locally with the rawKey
+      const enc = await encrypt(displayText, formatter, {
+        burnAfterReading: false,
+        openDiscussion: meta?.openDiscussion ?? true,
+        customKey: rawKey,
+      });
+
+      // 2. Persist updated ciphertext to DB
+      const res = await fetch(`/api/v1/paste/${pasteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          v: 2,
+          ct: enc.ciphertext,
+          adata: enc.adata,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to persist finalized paste');
+      }
+
+      setIsLocked(true);
+      setIsCollabEditing(false);
+      setFinalizedNotice(true);
+      disconnectCollab();
+    } catch (err) {
+      console.error('[handleLockAndFinalize]', err);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
 
   const copyToClipboard = async () => {
     if (!plaintext) return;
@@ -285,11 +325,23 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           currentUser={currentUser}
           typingUsers={typingUsers}
           isLocked={isLocked}
-          onLockPaste={() => {
-            setIsLocked(true);
-            disconnectCollab();
-          }}
+          onLockPaste={handleLockAndFinalize}
         />
+      )}
+
+      {/* Finalized Sealed Notice */}
+      {finalizedNotice && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
+            <span>
+              <strong>Sealed to Database:</strong> Collaborative edits have been re-encrypted with your AES key and permanently saved to the server. The live room is now locked.
+            </span>
+          </div>
+          <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/40 text-emerald-300">
+            Finalized
+          </Badge>
+        </div>
       )}
 
       {/* Main Content Card */}

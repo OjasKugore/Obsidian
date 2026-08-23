@@ -171,6 +171,16 @@ export const DeletePasteQuerySchema = z.object({
 
 export type DeletePasteQuery = z.infer<typeof DeletePasteQuerySchema>;
 
+// ── PUT /api/v1/paste/[id] — request (Finalize collaborative edit) ─────────────
+
+export const UpdatePasteBodySchema = z.object({
+  v: z.literal(2),
+  ct: z.string().min(1),
+  adata: AdataSchema,
+});
+
+export type UpdatePasteBody = z.infer<typeof UpdatePasteBodySchema>;
+
 // ── POST /api/v1/paste/[id]/comment — request ────────────────────────────────
 
 export const CreateCommentBodySchema = z.object({

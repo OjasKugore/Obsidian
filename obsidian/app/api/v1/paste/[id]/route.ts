@@ -179,3 +179,63 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// ── PUT (Finalize & Update Collaborative Encrypted Paste) ────────────────────
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
+
+  const rl = await checkRateLimit(request);
+  if (!rl.success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { UpdatePasteBodySchema } = await import('@/lib/api/schemas');
+  const parsed = UpdatePasteBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid update payload', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const existing = await prisma.paste.findUnique({
+      where: { id },
+      select: { id: true, burnAfterReading: true, expiresAt: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
+    }
+
+    if (existing.expiresAt && existing.expiresAt < new Date()) {
+      await prisma.paste.delete({ where: { id } });
+      return NextResponse.json({ error: 'Paste has expired' }, { status: 410 });
+    }
+
+    const updated = await prisma.paste.update({
+      where: { id },
+      data: {
+        ciphertext: parsed.data.ct,
+        adata: parsed.data.adata,
+      },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ success: true, pasteId: updated.id });
+  } catch (err) {
+    console.error('[PUT /api/v1/paste/[id]]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
