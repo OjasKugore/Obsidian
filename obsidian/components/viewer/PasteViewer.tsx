@@ -17,11 +17,14 @@ import {
   Layers,
   Sparkles,
   KeyRound,
+  Edit3,
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
+import { useCollab } from '@/hooks/useCollab';
 import { ShardQuorumPanel } from '@/components/viewer/ShardQuorumPanel';
 import { PrivateKeyUnlock } from '@/components/viewer/PrivateKeyUnlock';
 import { CommentSection } from '@/components/viewer/CommentSection';
+import { CollabIndicator } from '@/components/collab/CollabIndicator';
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +58,32 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
   const [copied, setCopied] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'formatted' | 'raw'>('formatted');
+  const [isCollabEditing, setIsCollabEditing] = React.useState(false);
+  const [isLocked, setIsLocked] = React.useState(false);
+
+  const canCollab = Boolean(plaintext && rawKey && !isAsymmetric && !isBurned);
+
+  const {
+    isConnected: isCollabConnected,
+    isConnecting: isCollabConnecting,
+    isLocalMode,
+    collaborators,
+    currentUser,
+    typingUsers,
+    content: liveText,
+    broadcastContent,
+    broadcastTyping,
+    disconnect: disconnectCollab,
+  } = useCollab({
+    pasteId,
+    rawKey,
+    initialContent: plaintext || '',
+    formatter,
+    isAsymmetric,
+    enabled: canCollab && !isLocked,
+  });
+
+  const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');
 
   const copyToClipboard = async () => {
     if (!plaintext) return;
@@ -66,9 +95,6 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
       console.error('Failed to copy: ', err);
     }
   };
-
-  const lineCount = plaintext ? plaintext.split('\n').length : 0;
-  const charCount = plaintext ? plaintext.length : 0;
 
   // ── Loading & Decrypting State ──────────────────────────────────────────────
   if (isLoading || (isDecrypting && !isQuorumNeeded)) {
@@ -249,6 +275,23 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       )}
 
+      {/* Real-Time E2EE Collaboration Bar */}
+      {canCollab && (
+        <CollabIndicator
+          isConnected={isCollabConnected}
+          isConnecting={isCollabConnecting}
+          isLocalMode={isLocalMode}
+          collaborators={collaborators}
+          currentUser={currentUser}
+          typingUsers={typingUsers}
+          isLocked={isLocked}
+          onLockPaste={() => {
+            setIsLocked(true);
+            disconnectCollab();
+          }}
+        />
+      )}
+
       {/* Main Content Card */}
       <div className="glass-panel rounded-3xl p-5 sm:p-7 flex flex-col gap-4 shadow-2xl relative overflow-hidden">
         {/* Viewer Toolbar */}
@@ -259,7 +302,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               Decrypted: {formatter}
             </Badge>
 
-            {formatter === 'markdown' && (
+            {formatter === 'markdown' && !isCollabEditing && (
               <div className="flex items-center rounded-lg bg-muted/60 p-0.5 border border-border/40 text-xs">
                 <button
                   type="button"
@@ -287,12 +330,24 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
                 </button>
               </div>
             )}
+
+            {canCollab && !isLocked && (
+              <Button
+                variant={isCollabEditing ? 'glow' : 'outline'}
+                size="sm"
+                onClick={() => setIsCollabEditing((prev) => !prev)}
+                className="h-8 text-xs gap-1.5 font-medium"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span>{isCollabEditing ? 'Reading View' : 'Live Collab Edit'}</span>
+              </Button>
+            )}
           </div>
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {lineCount} {lineCount === 1 ? 'line' : 'lines'} • {charCount.toLocaleString()} chars
+              {displayText.split('\n').length} {displayText.split('\n').length === 1 ? 'line' : 'lines'} • {displayText.length.toLocaleString()} chars
             </span>
             <Button
               variant="outline"
@@ -315,15 +370,32 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </div>
         </div>
 
-        {/* Content Display: Rendered Markdown vs Plaintext/Raw Code */}
-        {formatter === 'markdown' && viewMode === 'formatted' ? (
+        {/* Content Display: Collaborative Edit vs Rendered vs Raw */}
+        {isCollabEditing ? (
+          <div className="flex flex-col gap-2">
+            <textarea
+              value={displayText}
+              onChange={(e) => {
+                broadcastContent(e.target.value);
+                broadcastTyping();
+              }}
+              onKeyDown={() => broadcastTyping()}
+              placeholder="Type to collaborate in real-time..."
+              className="w-full min-h-[220px] rounded-2xl bg-black/50 border border-primary/40 p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 selection:bg-primary/30 resize-y"
+            />
+            <p className="text-[11px] text-muted-foreground flex items-center justify-between">
+              <span>⚡ Edits are encrypted and broadcast to all connected peers in real-time.</span>
+              <span className="font-mono text-[10px] text-emerald-400">Live Sync Ready</span>
+            </p>
+          </div>
+        ) : formatter === 'markdown' && viewMode === 'formatted' ? (
           <div className="relative rounded-2xl bg-black/40 border border-white/5 p-5 sm:p-6 overflow-x-auto min-h-[140px]">
-            <MarkdownPreview content={plaintext || ''} />
+            <MarkdownPreview content={displayText} />
           </div>
         ) : (
           <div className="relative rounded-2xl bg-black/40 border border-white/5 p-4 sm:p-5 overflow-x-auto min-h-[140px]">
             <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words selection:bg-primary/30">
-              {plaintext}
+              {displayText}
             </pre>
           </div>
         )}
