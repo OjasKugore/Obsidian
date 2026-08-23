@@ -3,12 +3,12 @@
 /**
  * components/ui/IntroSplash.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Fullscreen lock screen intro animation:
- * 1. Starts with solid pure white background (#ffffff) and black open lock.
+ * Single, unified fullscreen lock screen intro animation:
+ * 1. Starts with solid white background (#ffffff) and large black open lock.
  * 2. Lock shackle snaps down with spring physics.
- * 3. Screen and lock invert colors (dark background #09090b, white lock).
+ * 3. Screen and lock smoothly invert colors (dark #09090b, white lock).
  * 4. "OBSIDIAN" typography fades in smoothly below the lock.
- * 5. Screen cleanly transitions and unveils the main UI.
+ * 5. Single overlay cleanly fades out directly into the normal UI.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -20,33 +20,26 @@ interface IntroSplashProps {
 }
 
 export function IntroSplash({ onComplete }: IntroSplashProps) {
-  // Stages:
-  // 'enter'  (0.0s - 0.8s): pure white canvas, large black open lock appears
-  // 'lock'   (0.8s - 1.4s): lock shackle snaps shut with spring physics
-  // 'invert' (1.4s - 2.0s): bg transitions to #09090b, lock transitions to white
-  // 'text'   (2.0s - 3.2s): "OBSIDIAN" typography smoothly emerges below the lock
-  // 'exit'   (3.2s - 3.8s): overlay cleanly fades out
-  // 'done'   (3.8s+): completely unmounted
   const [stage, setStage] = React.useState<
     'enter' | 'lock' | 'invert' | 'text' | 'exit' | 'done'
   >('enter');
 
   React.useEffect(() => {
-    // Prevent body scrolling during splash animation
+    // Lock scrolling on document body during intro
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const t1 = setTimeout(() => setStage('lock'), 800);
-    const t2 = setTimeout(() => setStage('invert'), 1400);
-    const t3 = setTimeout(() => setStage('text'), 2000);
+    const t1 = setTimeout(() => setStage('lock'), 700);
+    const t2 = setTimeout(() => setStage('invert'), 1300);
+    const t3 = setTimeout(() => setStage('text'), 1800);
     const t4 = setTimeout(() => {
       setStage('exit');
       onComplete?.();
-    }, 3200);
+    }, 2900);
     const t5 = setTimeout(() => {
       setStage('done');
       document.body.style.overflow = originalOverflow;
-    }, 3800);
+    }, 3500);
 
     return () => {
       document.body.style.overflow = originalOverflow;
@@ -72,25 +65,25 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
           key="intro-splash-screen"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-[999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden"
           style={{
             backgroundColor: isInverted ? '#09090b' : '#ffffff',
-            transition: 'background-color 0.65s cubic-bezier(0.16, 1, 0.3, 1)',
+            transition: 'background-color 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
           <div className="flex flex-col items-center justify-center gap-7">
-            {/* Padlock Graphic - Large, Sharp & Modern */}
+            {/* Padlock Graphic - Large, Sharp & Modern Vector */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.85, y: 10 }}
+              initial={{ opacity: 0, scale: 0.88, y: 8 }}
               animate={{
                 opacity: 1,
                 scale: 1,
                 y: stage === 'lock' ? [0, 5, -1.5, 0] : 0,
               }}
               transition={{
-                opacity: { duration: 0.5, ease: 'easeOut' },
-                scale: { duration: 0.5, ease: 'easeOut' },
+                opacity: { duration: 0.45, ease: 'easeOut' },
+                scale: { duration: 0.45, ease: 'easeOut' },
                 y: { duration: 0.28, ease: 'easeInOut' },
               }}
               className="relative flex items-center justify-center"
@@ -169,17 +162,17 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
               </svg>
             </motion.div>
 
-            {/* "OBSIDIAN" Typography - Bold, Refined Modern Sans */}
+            {/* "OBSIDIAN" Typography - Bold Modern Sans */}
             <div className="h-10 flex items-center justify-center overflow-hidden">
               <motion.span
-                initial={{ opacity: 0, y: 14, filter: 'blur(8px)' }}
+                initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
                 animate={{
                   opacity: showText ? 1 : 0,
                   y: showText ? 0 : 14,
-                  filter: showText ? 'blur(0px)' : 'blur(8px)',
+                  filter: showText ? 'blur(0px)' : 'blur(6px)',
                 }}
                 transition={{
-                  duration: 0.8,
+                  duration: 0.7,
                   ease: [0.16, 1, 0.3, 1],
                 }}
                 className="font-sans text-xl sm:text-2xl font-black tracking-[0.35em] uppercase text-white/95"

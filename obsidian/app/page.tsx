@@ -13,20 +13,13 @@ export default function HomePage() {
   const { encryptAndSubmit, isLoading, error, result, reset } =
     usePasteEncryption();
 
-  const [splashFinished, setSplashFinished] = React.useState(false);
-
   return (
     <>
-      {/* Intro Splash Animation (Exact SVG white -> lock snap -> inversion -> Obsidian text) */}
-      <IntroSplash onComplete={() => setSplashFinished(true)} />
+      {/* Intro Splash Animation: single cohesive fullscreen sequence */}
+      <IntroSplash />
 
-      {/* Main App Container: Kept 100% invisible during splash animation so zero background UI is seen */}
-      <AuroraBackground
-        className={`transition-opacity duration-700 ${
-          splashFinished ? 'opacity-100' : 'opacity-0 pointer-events-none select-none'
-        }`}
-        aria-hidden={!splashFinished}
-      >
+      {/* Main App */}
+      <AuroraBackground>
         {/* Industrial Top Navbar */}
         <Header />
 
