@@ -2,56 +2,56 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;          /* #ffffff */
-    --foreground: 240 10% 3.9%;        /* #09090b */
-    --card: 0 0% 98%;                 /* #fafafa */
-    --card-foreground: 240 10% 3.9%;
+    --background: 220 20% 97%;          /* #f5f7fa */
+    --foreground: 224 25% 10%;          /* #131722 */
+    --card: 0 0% 100%;                 /* #ffffff */
+    --card-foreground: 224 25% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 10% 3.9%;          /* #09090b */
-    --primary-foreground: 0 0% 98%;   /* #fafafa */
-    --secondary: 240 4.8% 95.9%;      /* #f4f4f5 */
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;          /* #f4f4f5 */
-    --muted-foreground: 240 3.8% 46.1%; /* #71717a */
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --popover-foreground: 224 25% 10%;
+    --primary: 224 25% 10%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 224 25% 10%;
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 10% 46%;
+    --accent: 220 14% 92%;
+    --accent-foreground: 224 25% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;           /* #e4e4e7 */
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
-    --radius: 0.5rem;
+    --border: 220 13% 86%;
+    --input: 220 13% 86%;
+    --ring: 224 25% 10%;
+    --radius: 0.625rem;
 
     --glass-bg: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(0, 0, 0, 0.08);
-    --glass-glow: rgba(0, 0, 0, 0.04);
+    --glass-glow: rgba(0, 0, 0, 0.03);
   }
 
   .dark {
-    --background: 240 10% 3.9%;        /* #09090b */
-    --foreground: 0 0% 98%;           /* #fafafa */
-    --card: 240 10% 4.9%;             /* #131313 */
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 4.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;              /* #fafafa */
-    --primary-foreground: 240 5.9% 10%; /* #09090b */
-    --secondary: 240 3.7% 15.9%;      /* #27272a */
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 12%;            /* #18181b */
-    --muted-foreground: 240 5% 64.9%; /* #8e9192 */
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 224 28% 6%;          /* #090c13 - deep soft obsidian */
+    --foreground: 210 30% 96%;         /* #f1f5f9 - soft off-white text */
+    --card: 224 22% 9%;               /* #10141d - rich dark card */
+    --card-foreground: 210 30% 96%;
+    --popover: 224 22% 9%;
+    --popover-foreground: 210 30% 96%;
+    --primary: 210 30% 96%;
+    --primary-foreground: 224 28% 6%;
+    --secondary: 224 16% 14%;
+    --secondary-foreground: 210 30% 96%;
+    --muted: 224 16% 13%;             /* #171b26 */
+    --muted-foreground: 217 14% 65%;   /* #94a3b8 - soft slate */
+    --accent: 224 16% 16%;
+    --accent-foreground: 210 30% 96%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;         /* #27272a */
-    --input: 240 3.7% 15.9%;
-    --ring: 0 0% 98%;
+    --border: 224 16% 16%;            /* #1f2533 - soft refined border */
+    --input: 224 16% 16%;
+    --ring: 210 30% 96%;
 
-    --glass-bg: rgba(18, 18, 19, 0.85);
+    --glass-bg: rgba(16, 20, 29, 0.82);
     --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-glow: rgba(255, 255, 255, 0.02);
+    --glass-glow: rgba(99, 102, 241, 0.04);
   }
 }
 
@@ -61,7 +61,7 @@
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.35);
   }
 
   .glass-card {
@@ -70,9 +70,13 @@
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
   }
+
+  .soft-shadow {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
 }
 
-/* Custom Scrollbar for code blocks & lists */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

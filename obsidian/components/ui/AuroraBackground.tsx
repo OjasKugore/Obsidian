@@ -20,21 +20,24 @@ export function AuroraBackground({
       )}
       {...props}
     >
-      {/* Subtle monochrome ambient depth (no colored tints) */}
+      {/* Soft textured atmospheric background */}
       <div
-        className="pointer-events-none fixed inset-0 z-0 opacity-100"
+        className="pointer-events-none fixed inset-0 z-0 opacity-100 overflow-hidden"
         aria-hidden="true"
       >
-        {/* Subtle radial ambient highlight */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.03)_0%,transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.03)_0%,transparent_70%)] blur-2xl pointer-events-none" />
+        {/* Soft top ambient lighting */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.06)_0%,rgba(14,165,233,0.03)_35%,transparent_70%)] blur-3xl pointer-events-none" />
 
-        {/* Subtle grid pattern */}
+        {/* Soft corner atmospheric glow */}
+        <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-[radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.03)_0%,transparent_60%)] blur-3xl pointer-events-none" />
+
+        {/* Tactile micro-dot texture */}
         <div
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.03] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"
+          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.05] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none"
         />
 
-        {/* Subtle vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.03)_100%)] dark:bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] pointer-events-none" />
+        {/* Soft vignette for comfortable eye focus */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.35)_100%)] pointer-events-none" />
       </div>
 
       {/* Foreground Content */}

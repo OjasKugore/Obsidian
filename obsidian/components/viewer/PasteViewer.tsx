@@ -290,14 +290,14 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     >
       {/* Asymmetric RSA-OAEP success banner if applicable */}
       {isAsymmetric && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/40 border border-border text-foreground text-xs">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 shrink-0 text-foreground" />
+            <KeyRound className="h-4 w-4 shrink-0 text-indigo-400" />
             <span>
               <strong>RSA-OAEP Unlocked:</strong> AES-256 key unwrapped with your RSA private key in-browser.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-[10px] border-indigo-500/30 text-indigo-300">
             Asymmetric
           </Badge>
         </div>
@@ -305,14 +305,14 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
       {/* Shamir Quorum Banner if applicable */}
       {isShamir && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/40 border border-border text-foreground text-xs">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs">
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 shrink-0 text-foreground" />
+            <Layers className="h-4 w-4 shrink-0 text-cyan-400" />
             <span>
               <strong>Quorum Satisfied ({threshold}-of-{totalShards} SSS):</strong> All required shards collected and verified. Key reconstructed in-memory.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-[10px] border-cyan-500/30 text-cyan-300">
             Reconstructed
           </Badge>
         </div>
@@ -320,14 +320,14 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
       {/* Burn Notice Banner (One-time view) */}
       {meta?.burnAfterReading && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/60 border border-border text-foreground text-xs">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs">
           <div className="flex items-center gap-2">
-            <Flame className="h-4 w-4 shrink-0 text-foreground" />
+            <Flame className="h-4 w-4 shrink-0 text-amber-400 animate-pulse" />
             <span>
               <strong>1-Time View:</strong> This paste was permanently destroyed from the server database upon opening.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground">
+          <Badge variant="outline" className="shrink-0 text-[10px] border-amber-500/30 text-amber-300">
             Burned
           </Badge>
         </div>
@@ -349,26 +349,26 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
       {/* Finalized Sealed Notice */}
       {finalizedNotice && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/40 border border-border text-foreground text-xs">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-foreground" />
+            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
             <span>
               <strong>Sealed:</strong> Edits re-encrypted and permanently saved. Live session locked.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/30 text-emerald-300">
             Finalized
           </Badge>
         </div>
       )}
 
       {/* Main Content Card */}
-      <div className="rounded-lg border border-border bg-card p-5 sm:p-7 flex flex-col gap-4 shadow-xl relative overflow-hidden">
+      <div className="rounded-xl border border-border/80 bg-card/95 p-5 sm:p-7 flex flex-col gap-4 shadow-xl soft-shadow relative overflow-hidden">
         {/* Viewer Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted border border-border text-xs text-foreground font-bold uppercase">
-              <ShieldCheck className="h-3.5 w-3.5 text-foreground" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 font-bold uppercase">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
               <span>Decrypted: {formatter}</span>
             </div>
 

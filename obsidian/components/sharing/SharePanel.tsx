@@ -121,7 +121,13 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                     ? 'Recipient Encrypted Paste Created'
                     : 'Encrypted Paste Ready'}
                 </h2>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground">
+                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border ${
+                  isShamir
+                    ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'
+                    : isAsymmetric
+                    ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                }`}>
                   {isShamir ? `${result.threshold}-of-${result.totalShares} SSS` : isAsymmetric ? 'RSA-OAEP' : 'AES-256-GCM'}
                 </span>
               </div>

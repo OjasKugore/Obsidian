@@ -244,18 +244,18 @@ export function IdentityPanel() {
                           className="flex flex-col gap-3"
                         >
                           {/* Key info card */}
-                          <div className="p-3 rounded bg-muted/40 border border-border flex flex-col gap-2">
+                          <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 flex flex-col gap-2">
                             <div className="flex items-center gap-2">
-                              <ShieldCheck className="h-4 w-4 text-foreground shrink-0" />
+                              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
                               <span className="text-xs font-bold text-foreground uppercase tracking-wider">
                                 Identity Key Active
                               </span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground ml-auto">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 ml-auto font-mono">
                                 RSA-2048
                               </span>
                             </div>
                             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
-                              <Fingerprint className="h-3.5 w-3.5 shrink-0 text-foreground" />
+                              <Fingerprint className="h-3.5 w-3.5 shrink-0 text-emerald-400/80" />
                               <span className="truncate">{formattedFp}</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground">

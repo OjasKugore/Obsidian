@@ -166,15 +166,15 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
         </div>
 
         <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-          <span className="h-2 w-2 rounded-full bg-foreground" />
-          <span>Zero-Knowledge Vault Active</span>
+          <span className="h-2 w-2 rounded-full bg-emerald-400/90 shadow-[0_0_8px_rgba(52,211,153,0.5)] animate-pulse" />
+          <span className="text-foreground/90 font-medium">Zero-Knowledge Vault Active</span>
         </div>
       </div>
 
       {/* ── Main Two-Column Layout: Code Canvas + Delivery Sidebar ────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ── Left Column: Code Editor Canvas (8 Cols) ───────────────────── */}
-        <div className="lg:col-span-8 flex flex-col border border-border rounded-lg overflow-hidden bg-card shadow-xl focus-within:border-foreground/40 transition-colors">
+        <div className="lg:col-span-8 flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card/95 shadow-xl soft-shadow focus-within:border-foreground/40 transition-all">
           {/* Window Chrome Header */}
           <div className="h-10 border-b border-border flex items-center px-4 justify-between bg-muted/40 select-none">
             {/* Mac-style Window Dots + Filename */}
