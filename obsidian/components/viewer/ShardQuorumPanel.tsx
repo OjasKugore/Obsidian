@@ -1,15 +1,23 @@
 'use client';
 
+/**
+ * components/viewer/ShardQuorumPanel.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Interactive multi-party quorum collection panel.
+ * Strict monochrome styling matching Obsidian design standards.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  KeyRound,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Info,
-  Lock,
   Layers,
+  KeyRound,
+  Plus,
+  CheckCircle2,
+  Lock,
+  AlertCircle,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +25,10 @@ import { Badge } from '@/components/ui/badge';
 interface ShardQuorumPanelProps {
   threshold: number;
   totalShards: number;
-  loadedShards: { index: number; shardString: string }[];
-  onAddShard: (input: string) => Promise<{ success: boolean; error?: string }>;
+  loadedShards: Array<{ index: number; shardString: string }>;
+  onAddShard: (shardInput: string) => Promise<{ success: boolean; error?: string }>;
   isDecrypting: boolean;
-  error: string | null;
+  error?: string | null;
 }
 
 export function ShardQuorumPanel({
@@ -32,10 +40,13 @@ export function ShardQuorumPanel({
   error: parentError,
 }: ShardQuorumPanelProps) {
   const [shardInput, setShardInput] = React.useState('');
-  const [inputError, setInputError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [inputError, setInputError] = React.useState<string | null>(null);
 
-  const loadedIndices = new Set(loadedShards.map((s) => s.index));
+  const loadedSet = React.useMemo(
+    () => new Set(loadedShards.map((s) => s.index)),
+    [loadedShards]
+  );
   const currentCount = loadedShards.length;
   const neededCount = Math.max(0, threshold - currentCount);
   const progressPercent = Math.min(100, Math.round((currentCount / threshold) * 100));
@@ -44,18 +55,18 @@ export function ShardQuorumPanel({
     e.preventDefault();
     if (!shardInput.trim() || isSubmitting) return;
 
-    setInputError(null);
     setIsSubmitting(true);
+    setInputError(null);
 
     try {
-      const res = await onAddShard(shardInput.trim());
-      if (!res.success) {
-        setInputError(res.error || 'Failed to add shard.');
-      } else {
+      const result = await onAddShard(shardInput.trim());
+      if (result.success) {
         setShardInput('');
+      } else {
+        setInputError(result.error || 'Invalid shard token format or duplicate shard index.');
       }
-    } catch {
-      setInputError('An unexpected error occurred while adding the shard.');
+    } catch (err) {
+      setInputError(err instanceof Error ? err.message : 'Failed to parse shard');
     } finally {
       setIsSubmitting(false);
     }
@@ -63,29 +74,24 @@ export function ShardQuorumPanel({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97, y: 16 }}
+      initial={{ opacity: 0, scale: 0.98, y: 12 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97, y: -16 }}
-      transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-2xl mx-auto flex flex-col gap-6"
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="w-full max-w-2xl mx-auto flex flex-col gap-6 font-mono"
     >
-      <div className="glass-panel rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-2xl relative overflow-hidden border border-blue-500/20">
-        {/* Ambient background glow */}
-        <div className="absolute -top-24 -right-24 w-52 h-52 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-52 h-52 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="rounded-lg border border-border bg-card p-6 sm:p-8 flex flex-col gap-6 shadow-xl relative overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
           <div className="flex items-center gap-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 shadow-inner">
-              <Layers className="h-6 w-6" />
+            <div className="flex h-10 w-10 items-center justify-center rounded bg-muted border border-border text-foreground">
+              <Layers className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                <h2 className="text-base sm:text-lg font-bold uppercase tracking-tight text-foreground">
                   Shamir Quorum Required
                 </h2>
-                <Badge variant="glow" className="text-[11px] font-semibold">
+                <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border">
                   {threshold}-of-{totalShards} SSS
                 </Badge>
               </div>
@@ -97,11 +103,11 @@ export function ShardQuorumPanel({
         </div>
 
         {/* Progress Bar & Status */}
-        <div className="flex flex-col gap-2.5 p-4 rounded-2xl bg-background/60 border border-border/60">
+        <div className="flex flex-col gap-2.5 p-4 rounded bg-muted/30 border border-border">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-foreground flex items-center gap-1.5">
-              <KeyRound className="h-4 w-4 text-blue-400" />
-              Collected Shards: <span className="text-primary">{currentCount}</span> of{' '}
+            <span className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <KeyRound className="h-4 w-4 text-foreground" />
+              Collected Shards: <span className="text-foreground">{currentCount}</span> of{' '}
               <span className="text-foreground">{threshold}</span> required
             </span>
             <span className="font-mono text-muted-foreground text-[11px]">
@@ -110,12 +116,12 @@ export function ShardQuorumPanel({
           </div>
 
           {/* Progress bar line */}
-          <div className="w-full h-2.5 rounded-full bg-muted/80 overflow-hidden relative">
+          <div className="w-full h-2 rounded bg-muted overflow-hidden relative border border-border">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+              className="h-full bg-foreground rounded"
             />
           </div>
 
@@ -131,37 +137,37 @@ export function ShardQuorumPanel({
 
         {/* Shard Slots Visualizer */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Distributed Shard Slots
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
             {Array.from({ length: totalShards }).map((_, i) => {
               const shardIndex = i + 1;
-              const isLoaded = loadedIndices.has(shardIndex);
+              const isLoaded = loadedSet.has(shardIndex);
 
               return (
                 <div
                   key={shardIndex}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs transition-all ${
+                  className={`flex items-center justify-between p-2.5 rounded border text-xs transition-all ${
                     isLoaded
-                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]'
-                      : 'bg-background/40 border-border/60 text-muted-foreground'
+                      ? 'bg-muted/80 border-foreground/50 text-foreground font-bold'
+                      : 'bg-background border-border text-muted-foreground'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     {isLoaded ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-foreground shrink-0" />
                     ) : (
-                      <Lock className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      <Lock className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
                     )}
-                    <span className="font-medium">
+                    <span>
                       Shard #{shardIndex}
                     </span>
                   </div>
                   {isLoaded ? (
-                    <Badge variant="success" className="text-[9px] py-0 px-1">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted border border-border text-foreground">
                       Ready
-                    </Badge>
+                    </span>
                   ) : (
                     <span className="text-[10px] text-muted-foreground">Empty</span>
                   )}
@@ -175,7 +181,7 @@ export function ShardQuorumPanel({
         <form onSubmit={handleAdd} className="flex flex-col gap-3">
           <label
             htmlFor="shard-token-input"
-            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between"
+            className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between"
           >
             <span>Provide Additional Shard</span>
             <span className="text-[11px] font-normal lowercase text-muted-foreground">
@@ -194,13 +200,12 @@ export function ShardQuorumPanel({
               }}
               placeholder="Paste shard token (e.g. shard-2-2-3-...) or full shard URL..."
               disabled={isSubmitting || isDecrypting}
-              className="w-full h-11 px-3.5 rounded-xl bg-background/80 border border-border/80 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all selection:bg-primary/30"
+              className="w-full h-10 px-3 rounded bg-background border border-border text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/50 transition-all"
             />
             <Button
               type="submit"
-              variant="glow"
               disabled={!shardInput.trim() || isSubmitting || isDecrypting}
-              className="shrink-0 h-11 px-4 gap-1.5 font-semibold"
+              className="shrink-0 h-10 px-4 gap-1.5 font-bold font-mono text-xs bg-foreground text-background hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
               <span>Add Shard</span>
@@ -213,7 +218,7 @@ export function ShardQuorumPanel({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs"
+                className="flex items-center gap-2 p-3 rounded bg-destructive/10 border border-destructive/25 text-destructive text-xs"
               >
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{inputError || parentError}</span>
@@ -223,12 +228,12 @@ export function ShardQuorumPanel({
         </form>
 
         {/* Info Callout */}
-        <div className="rounded-2xl bg-blue-500/5 border border-blue-500/15 p-4 text-xs text-muted-foreground flex items-start gap-3">
-          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
+        <div className="rounded bg-muted/20 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3">
+          <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
             <Info className="h-4 w-4" />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="font-semibold text-foreground">
+            <span className="font-bold text-foreground uppercase tracking-wide text-[11px]">
               Mathematical $k$-of-$n$ Information Theoretic Security
             </span>
             <p className="leading-relaxed text-[11px]">
@@ -243,3 +248,5 @@ export function ShardQuorumPanel({
     </motion.div>
   );
 }
+
+export default ShardQuorumPanel;

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { IdentityPanel } from '@/components/header/IdentityPanel';
 
 export function Header() {
-  const { setTheme, resolvedTheme } = useTheme();
+  const { setTheme, theme, resolvedTheme } = useTheme();
   const mounted = React.useSyncExternalStore(
     () => () => {},
     () => true,
@@ -16,11 +16,12 @@ export function Header() {
   );
 
   const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+    const current = resolvedTheme || theme;
+    setTheme(current === 'dark' ? 'light' : 'dark');
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#27272a] bg-[#131313]/90 backdrop-blur-md transition-colors">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-md transition-colors">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-8">
         {/* Brand & Nav */}
         <div className="flex items-center gap-8">
@@ -28,18 +29,18 @@ export function Header() {
             href="/"
             className="flex items-center gap-2.5 transition-transform active:scale-95"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-white text-black font-bold">
-              <Shield className="h-4 w-4 fill-black text-black" />
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-foreground text-background font-bold">
+              <Shield className="h-4 w-4 fill-current text-background" />
             </div>
-            <span className="font-mono text-lg font-bold tracking-tight text-white">
+            <span className="font-mono text-lg font-bold tracking-tight text-foreground">
               OBSIDIAN
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-mono text-[#8e9192]">
-            <span className="hover:text-white transition-colors cursor-pointer">Explore</span>
-            <span className="hover:text-white transition-colors cursor-pointer">Protocol</span>
-            <span className="hover:text-white transition-colors cursor-pointer">Security</span>
+          <nav className="hidden md:flex items-center gap-6 text-xs font-mono text-muted-foreground">
+            <span className="hover:text-foreground transition-colors cursor-pointer">Explore</span>
+            <span className="hover:text-foreground transition-colors cursor-pointer">Protocol</span>
+            <span className="hover:text-foreground transition-colors cursor-pointer">Security</span>
           </nav>
         </div>
 
@@ -54,8 +55,9 @@ export function Header() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="h-8 w-8 rounded text-[#8e9192] hover:text-white hover:bg-[#27272a]"
+              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
               aria-label="Toggle theme"
+              id="theme-toggle-btn"
             >
               {resolvedTheme === 'dark' ? (
                 <Sun className="h-4 w-4 transition-transform hover:rotate-45" />
@@ -69,9 +71,9 @@ export function Header() {
           <Link href="/">
             <Button
               size="sm"
-              className="h-8 px-3.5 text-xs font-semibold bg-white text-black hover:bg-neutral-200 gap-1.5 rounded transition-all"
+              className="h-8 px-3.5 text-xs font-semibold bg-foreground text-background hover:opacity-90 gap-1.5 rounded transition-all"
             >
-              <Plus className="h-3.5 w-3.5 text-black" />
+              <Plus className="h-3.5 w-3.5 text-background" />
               <span>Create Paste</span>
             </Button>
           </Link>

@@ -1,22 +1,29 @@
 'use client';
 
+/**
+ * components/sharing/SharePanel.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Success panel shown after client-side encryption.
+ * Strict monochrome styling matching Obsidian design standards.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Check,
   Copy,
+  Check,
   ExternalLink,
-  PlusCircle,
   ShieldCheck,
-  Key,
-  QrCode,
   Trash2,
   ChevronDown,
   ChevronUp,
   Layers,
+  Key,
+  QrCode,
+  PlusCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import type { EncryptionResult } from '@/hooks/usePasteEncryption';
 
 interface SharePanelProps {
@@ -33,50 +40,49 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
   const [isDeleted, setIsDeleted] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
-  // No decorative confetti on mount
-  React.useEffect(() => {}, []);
-
-  const copyToClipboard = async (text: string, index: number | 'token' | 'all' = 0) => {
+  const copyToClipboard = async (text: string, index: number | 'token') => {
     try {
       await navigator.clipboard.writeText(text);
       if (index === 'token') {
         setTokenCopied(true);
         setTimeout(() => setTokenCopied(false), 2000);
-      } else if (index === 'all') {
-        setCopiedAll(true);
-        setTimeout(() => setCopiedAll(false), 2500);
       } else {
         setCopiedIndex(index);
-        setTimeout(() => setCopiedIndex(null), 2500);
+        setTimeout(() => setCopiedIndex(null), 2000);
       }
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
+    } catch {
+      // Fallback
     }
   };
 
-  const handleCopyAllShards = () => {
+  const handleCopyAllShards = async () => {
     if (!result.shardUrls) return;
-    const allFormatted = result.shardUrls
-      .map(
-        (s) =>
-          `Shard #${s.index} (Threshold: ${result.threshold}-of-${result.totalShares}):\n${s.url}`
-      )
-      .join('\n\n');
-    copyToClipboard(allFormatted, 'all');
+    try {
+      const allText = result.shardUrls
+        .map((s) => `Shard #${s.index} (Threshold ${result.threshold}/${result.totalShares}): ${s.url}`)
+        .join('\n');
+      await navigator.clipboard.writeText(allText);
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2500);
+    } catch {
+      // Fallback
+    }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to permanently delete this encrypted paste now?')) {
+    if (!confirm('Are you sure you want to permanently delete this paste immediately?')) {
       return;
     }
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/v1/paste/${result.pasteId}?deleteToken=${result.deleteToken}`, {
+      const res = await fetch(`/api/v1/paste/${result.pasteId}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteToken: result.deleteToken }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to delete paste');
       }
       setIsDeleted(true);
@@ -92,36 +98,32 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.96, y: 16 }}
+      initial={{ opacity: 0, scale: 0.98, y: 12 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96, y: -16 }}
-      transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-3xl mx-auto flex flex-col gap-6"
+      exit={{ opacity: 0, scale: 0.98, y: -12 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="w-full max-w-3xl mx-auto flex flex-col gap-6 font-mono"
     >
       {/* Main Success Card */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-8 flex flex-col gap-6 shadow-2xl relative overflow-hidden border border-blue-500/20">
-        {/* Glow accent */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="rounded-lg border border-border bg-card p-6 sm:p-8 flex flex-col gap-6 shadow-xl relative overflow-hidden">
         {/* Card Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-inner">
-              {isShamir ? <Layers className="h-6 w-6 text-primary" /> : <ShieldCheck className="h-6 w-6" />}
+            <div className="flex h-10 w-10 items-center justify-center rounded bg-muted border border-border text-foreground">
+              {isShamir ? <Layers className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-foreground">
+                <h2 className="text-base sm:text-lg font-bold text-foreground uppercase tracking-tight">
                   {isShamir
                     ? 'Threshold Shards Created'
                     : isAsymmetric
                     ? 'Recipient Encrypted Paste Created'
                     : 'Encrypted Paste Ready'}
                 </h2>
-                <Badge variant="glow" className="text-xs uppercase font-mono tracking-wider">
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground">
                   {isShamir ? `${result.threshold}-of-${result.totalShares} SSS` : isAsymmetric ? 'RSA-OAEP' : 'AES-256-GCM'}
-                </Badge>
+                </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {isShamir
@@ -137,7 +139,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
             variant="outline"
             size="sm"
             onClick={onReset}
-            className="text-xs gap-1.5 h-8 border-border/80"
+            className="text-xs gap-1.5 h-8 font-mono border-border bg-background hover:bg-muted"
           >
             <PlusCircle className="h-3.5 w-3.5" />
             <span>New Paste</span>
@@ -150,31 +152,31 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Shard Links ({result.shardUrls?.length})
                 </span>
-                <Badge variant="outline" className="text-[10px] font-mono text-primary border-primary/30">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border text-foreground">
                   Quorum: {result.threshold} required
-                </Badge>
+                </span>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleCopyAllShards}
-                className="text-xs h-7 text-primary hover:text-primary/80 gap-1.5"
+                className="text-xs h-7 text-foreground hover:bg-muted gap-1.5"
               >
-                {copiedAll ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                {copiedAll ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                 <span>{copiedAll ? 'All Copied' : 'Copy All Links'}</span>
               </Button>
             </div>
 
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2">
               {result.shardUrls?.map((shard, idx) => (
                 <div
                   key={shard.index}
-                  className="flex items-center gap-2 p-2.5 rounded-2xl bg-background/60 border border-border/60 hover:border-primary/40 transition-colors"
+                  className="flex items-center gap-2 p-2.5 rounded bg-muted/40 border border-border hover:border-foreground/40 transition-colors"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-mono font-bold">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-foreground text-xs font-mono font-bold border border-border">
                     #{shard.index}
                   </div>
                   <input
@@ -188,11 +190,11 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => copyToClipboard(shard.url, idx)}
-                      className="h-7 text-xs px-2.5 gap-1 border-border/60"
+                      className="h-7 text-xs px-2.5 gap-1 border-border bg-background hover:bg-muted"
                     >
                       {copiedIndex === idx ? (
                         <>
-                          <Check className="h-3 w-3 text-emerald-400" />
+                          <Check className="h-3 w-3" />
                           <span className="hidden sm:inline">Copied</span>
                         </>
                       ) : (
@@ -206,7 +208,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                       href={shard.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground hover:text-foreground transition-colors"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded border border-border bg-background text-muted-foreground hover:text-foreground transition-colors"
                       title="Open shard in new tab"
                     >
                       <ExternalLink className="h-3 w-3" />
@@ -216,12 +218,12 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
               ))}
             </div>
 
-            <div className="rounded-2xl bg-primary/5 border border-primary/15 p-4 text-xs text-muted-foreground flex items-start gap-3">
-              <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0 mt-0.5">
+            <div className="rounded bg-muted/30 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3">
+              <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
                 <Layers className="h-4 w-4" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">How Shamir Secret Sharing Works</span>
+                <span className="font-bold text-foreground">How Shamir Secret Sharing Works</span>
                 <p className="leading-relaxed text-[11px]">
                   The master encryption key was split into {result.totalShares} cryptographic shares. No single shard contains any information about the original secret. Any {result.threshold} shares combined will reconstruct the key and decrypt the paste.
                 </p>
@@ -231,25 +233,24 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
         ) : (
           // ── Single URL Display ──
           <div className="flex flex-col gap-3">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Shareable Link
             </span>
-            <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-background/70 border border-primary/30 shadow-inner">
+            <div className="flex items-center gap-2 p-2.5 rounded bg-background border border-border">
               <input
                 type="text"
                 readOnly
                 value={result.shareUrl}
-                className="w-full bg-transparent px-2 text-xs sm:text-sm font-mono text-foreground focus:outline-none truncate selection:bg-primary/30"
+                className="w-full bg-transparent px-2 text-xs sm:text-sm font-mono text-foreground focus:outline-none truncate"
               />
               <Button
-                variant="glow"
                 size="sm"
                 onClick={() => copyToClipboard(result.shareUrl, 0)}
-                className="shrink-0 text-xs h-8 gap-1.5 font-semibold"
+                className="shrink-0 text-xs h-8 gap-1.5 font-bold font-mono bg-foreground text-background hover:opacity-90"
               >
                 {copiedIndex === 0 ? (
                   <>
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <Check className="h-3.5 w-3.5" />
                     <span>Copied!</span>
                   </>
                 ) : (
@@ -263,7 +264,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                 href={result.shareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/80 bg-background text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-background text-muted-foreground hover:text-foreground transition-colors shrink-0"
                 title="Open in new tab"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -271,29 +272,29 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
             </div>
 
             {isAsymmetric ? (
-              <div className="rounded-2xl bg-purple-500/5 border border-purple-500/20 p-4 text-xs text-muted-foreground flex items-start gap-3 mt-2">
-                <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 shrink-0 mt-0.5">
+              <div className="rounded bg-muted/30 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3 mt-1">
+                <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
                   <Key className="h-4 w-4" />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-foreground">RSA-OAEP Recipient Encryption</span>
+                  <span className="font-bold text-foreground">RSA-OAEP Recipient Encryption</span>
                   <p className="leading-relaxed text-[11px]">
                     The AES-256 key is sealed with the recipient&apos;s RSA-2048 public key and stored in{' '}
-                    <code className="font-mono bg-purple-500/10 px-1 py-0.5 rounded text-purple-300">adata[4]</code>.
-                    The URL ends in <code className="font-mono bg-purple-500/10 px-1 py-0.5 rounded text-purple-300">#asym</code> —{' '}
+                    <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">adata[4]</code>.
+                    The URL ends in <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">#asym</code> —{' '}
                     <strong>no decryption key is in the URL</strong>. Only the holder of the matching private key can decrypt.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl bg-blue-500/5 border border-blue-500/15 p-4 text-xs text-muted-foreground flex items-start gap-3 mt-2">
-                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
+              <div className="rounded bg-muted/30 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3 mt-1">
+                <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
                   <Key className="h-4 w-4" />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-foreground">Zero-Knowledge Architecture</span>
+                  <span className="font-bold text-foreground">Zero-Knowledge Architecture</span>
                   <p className="leading-relaxed text-[11px]">
-                    The decryption key <code className="font-mono bg-blue-500/10 px-1 py-0.5 rounded text-blue-300">#{result.rawKeyBase58.slice(0, 8)}...</code> is located after the URL hash fragment. Browsers <strong>never</strong> send hash fragments to web servers, guaranteeing only holders of this link can decrypt your content.
+                    The decryption key <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">#{result.rawKeyBase58.slice(0, 8)}...</code> is located after the URL hash fragment. Browsers <strong>never</strong> send hash fragments to web servers, guaranteeing only holders of this link can decrypt your content.
                   </p>
                 </div>
               </div>
@@ -302,30 +303,30 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
         )}
 
         {/* QR Code Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-background/40 border border-border/40">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3.5 rounded bg-muted/20 border border-border">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-muted/60 border border-border/50 text-muted-foreground">
-              <QrCode className="h-5 w-5" />
+            <div className="p-2 rounded bg-muted border border-border text-foreground">
+              <QrCode className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-foreground">Mobile & In-Person Sharing</p>
+              <p className="text-xs font-bold text-foreground uppercase tracking-wider">Mobile & In-Person Sharing</p>
               <p className="text-[11px] text-muted-foreground">Scan or share this paste directly with mobile devices</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs text-muted-foreground border-border/60">
+          <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted border border-border">
             QR Scanner Ready
-          </Badge>
+          </span>
         </div>
 
         {/* Collapsible Delete Token Section */}
-        <div className="border-t border-border/40 pt-4 flex flex-col gap-3">
+        <div className="border-t border-border pt-4 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => setShowDeleteSection(!showDeleteSection)}
             className="flex items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <span className="flex items-center gap-1.5 text-destructive/80 font-medium">
-              <Trash2 className="h-3.5 w-3.5 text-destructive/70" />
+            <span className="flex items-center gap-1.5 text-foreground font-mono">
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
               Delete Token & Immediate Destruction
             </span>
             {showDeleteSection ? (
@@ -344,8 +345,8 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                 className="flex flex-col gap-2.5 pt-2"
               >
                 {isDeleted ? (
-                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-medium flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-400" />
+                  <div className="p-3 rounded bg-muted border border-border text-foreground text-xs font-medium flex items-center gap-2">
+                    <Check className="h-4 w-4" />
                     <span>Paste has been permanently destroyed and deleted from server!</span>
                   </div>
                 ) : (
@@ -353,7 +354,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       If you need to manually destroy this paste immediately before it expires, use this secret deletion token:
                     </p>
-                    <div className="flex items-center gap-2 p-2 rounded-xl bg-background/90 border border-border/80">
+                    <div className="flex items-center gap-2 p-2 rounded bg-background border border-border">
                       <input
                         type="text"
                         readOnly
@@ -364,9 +365,9 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => copyToClipboard(result.deleteToken, 'token')}
-                        className="shrink-0 text-xs h-7"
+                        className="shrink-0 text-xs h-7 bg-background hover:bg-muted border-border font-mono"
                       >
-                        {tokenCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                        {tokenCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                         <span className="ml-1">{tokenCopied ? 'Copied' : 'Copy'}</span>
                       </Button>
                     </div>
@@ -376,7 +377,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                       size="sm"
                       onClick={handleDelete}
                       disabled={isDeleting}
-                      className="w-full text-xs h-8 gap-1.5 font-medium mt-1"
+                      className="w-full text-xs h-8 gap-1.5 font-mono font-bold mt-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>{isDeleting ? 'Deleting...' : 'Destroy Paste on Server Now'}</span>
@@ -395,3 +396,5 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
     </motion.div>
   );
 }
+
+export default SharePanel;
