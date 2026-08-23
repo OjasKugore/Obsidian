@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * components/viewer/PasteViewer.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Decrypted Paste Viewer Component.
+ * Strict monochrome styling matching Obsidian design standards.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -69,7 +77,6 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   const handleRemoteLock = React.useCallback(() => {
     setIsLocked(true);
     setIsCollabEditing(false);
-    setFinalizedNotice(true);
   }, []);
 
   const {
@@ -150,15 +157,15 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   // ── Loading & Decrypting State ──────────────────────────────────────────────
   if (isLoading || (isDecrypting && !isQuorumNeeded)) {
     return (
-      <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center min-h-[400px] p-8">
+      <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center min-h-[400px] p-8 font-mono">
         <motion.div
-          animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
+          animate={{ scale: [1, 1.04, 1], rotate: [0, 3, -3, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-500/10 border border-blue-500/30 text-blue-400 shadow-[0_0_40px_-5px_rgba(59,130,246,0.3)] mb-6"
+          className="flex h-16 w-16 items-center justify-center rounded-lg bg-muted border border-border text-foreground shadow-lg mb-6"
         >
-          <Lock className="h-10 w-10" />
+          <Lock className="h-8 w-8 text-foreground" />
         </motion.div>
-        <h2 className="text-xl font-bold text-foreground mb-2">
+        <h2 className="text-lg font-bold text-foreground mb-2 uppercase tracking-wide">
           {isDecrypting ? 'Decrypting Secret...' : 'Retrieving Ciphertext...'}
         </h2>
         <p className="text-xs text-muted-foreground max-w-md text-center">
@@ -197,22 +204,22 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   if (!plaintext && (isBurned || (error && error.includes('burned')))) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-3xl glass-panel border border-amber-500/30 flex flex-col items-center text-center shadow-2xl"
+        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-lg border border-border bg-card flex flex-col items-center text-center shadow-xl font-mono"
       >
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-5 shadow-inner">
-          <Flame className="h-8 w-8" />
+        <div className="flex h-14 w-14 items-center justify-center rounded bg-muted border border-border text-foreground mb-5">
+          <Flame className="h-7 w-7 text-foreground" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
+        <h2 className="text-xl font-bold text-foreground mb-2 uppercase tracking-wide">
           This Paste Has Been Burned
         </h2>
-        <p className="text-sm text-muted-foreground max-w-md mb-6 leading-relaxed">
-          This secret was configured to <strong>burn after reading</strong>. It has been permanently and atomically wiped from the server database upon its initial view.
+        <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
+          This secret was configured to <strong>burn after reading</strong>. It has been permanently wiped from the server database upon its initial view.
         </p>
         <div className="flex items-center gap-3">
           <Link href="/">
-            <Button variant="glow" className="gap-2">
+            <Button className="gap-2 font-mono text-xs font-bold bg-foreground text-background hover:opacity-90">
               <PlusCircle className="h-4 w-4" />
               Create a New Paste
             </Button>
@@ -226,24 +233,24 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   if (isTimeLocked) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-3xl glass-panel border border-blue-500/30 flex flex-col items-center text-center shadow-2xl"
+        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-lg border border-border bg-card flex flex-col items-center text-center shadow-xl font-mono"
       >
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 mb-5">
-          <Clock className="h-8 w-8" />
+        <div className="flex h-14 w-14 items-center justify-center rounded bg-muted border border-border text-foreground mb-5">
+          <Clock className="h-7 w-7 text-foreground" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
+        <h2 className="text-xl font-bold text-foreground mb-2 uppercase tracking-wide">
           Paste is Time-Locked
         </h2>
-        <p className="text-sm text-muted-foreground max-w-md mb-6 leading-relaxed">
+        <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
           The author set a cryptographic time-lock on this paste. It cannot be decrypted until{' '}
           <strong className="text-foreground font-mono">
             {timelockedUntil ? new Date(timelockedUntil).toLocaleString() : 'the scheduled time'}
           </strong>.
         </p>
         <Link href="/">
-          <Button variant="outline">Back to Home</Button>
+          <Button variant="outline" className="font-mono text-xs">Back to Home</Button>
         </Link>
       </motion.div>
     );
@@ -253,21 +260,21 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   if (error) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-3xl glass-panel border border-destructive/40 flex flex-col items-center text-center shadow-2xl"
+        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-lg border border-destructive/30 bg-card flex flex-col items-center text-center shadow-xl font-mono"
       >
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive mb-5">
-          <AlertTriangle className="h-8 w-8" />
+        <div className="flex h-14 w-14 items-center justify-center rounded bg-destructive/10 border border-destructive/25 text-destructive mb-5">
+          <AlertTriangle className="h-7 w-7 text-destructive" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
+        <h2 className="text-xl font-bold text-destructive mb-2 uppercase tracking-wide">
           Decryption Failed
         </h2>
-        <p className="text-sm text-muted-foreground max-w-md mb-6 leading-relaxed">
+        <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
           {error}
         </p>
         <Link href="/">
-          <Button variant="outline">Create a New Paste</Button>
+          <Button variant="outline" className="font-mono text-xs">Create a New Paste</Button>
         </Link>
       </motion.div>
     );
@@ -276,21 +283,21 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   // ── Success / Decrypted State ───────────────────────────────────────────────
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="w-full max-w-4xl mx-auto flex flex-col gap-4 animate-decrypt-reveal"
+      transition={{ duration: 0.3 }}
+      className="w-full max-w-4xl mx-auto flex flex-col gap-4 font-mono"
     >
       {/* Asymmetric RSA-OAEP success banner if applicable */}
       {isAsymmetric && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs font-medium">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/40 border border-border text-foreground text-xs">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 shrink-0 text-purple-400" />
+            <KeyRound className="h-4 w-4 shrink-0 text-foreground" />
             <span>
-              <strong>RSA-OAEP Unlocked:</strong> The AES-256 key was unwrapped using your RSA-2048 private key. Decryption completed in-browser.
+              <strong>RSA-OAEP Unlocked:</strong> AES-256 key unwrapped with your RSA private key in-browser.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] border-purple-500/40 text-purple-300">
+          <Badge variant="outline" className="shrink-0 text-[10px]">
             Asymmetric
           </Badge>
         </div>
@@ -298,30 +305,30 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
       {/* Shamir Quorum Banner if applicable */}
       {isShamir && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs font-medium">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/40 border border-border text-foreground text-xs">
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 shrink-0 text-blue-400" />
+            <Layers className="h-4 w-4 shrink-0 text-foreground" />
             <span>
-              <strong>Quorum Satisfied ({threshold}-of-{totalShards} SSS):</strong> All required key shards have been collected and verified. The AES key was reconstructed in-memory.
+              <strong>Quorum Satisfied ({threshold}-of-{totalShards} SSS):</strong> All required shards collected and verified. Key reconstructed in-memory.
             </span>
           </div>
-          <Badge variant="glow" className="shrink-0 text-[10px]">
+          <Badge variant="outline" className="shrink-0 text-[10px]">
             Reconstructed
           </Badge>
         </div>
       )}
 
-      {/* Burn Notice Banner if applicable */}
+      {/* Burn Notice Banner (One-time view) */}
       {meta?.burnAfterReading && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-medium">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/60 border border-border text-foreground text-xs">
           <div className="flex items-center gap-2">
-            <Flame className="h-4 w-4 shrink-0 animate-pulse" />
+            <Flame className="h-4 w-4 shrink-0 text-foreground" />
             <span>
-              <strong>1-Time View:</strong> This paste has just been permanently deleted from the database. Reloading this page will return a 404.
+              <strong>1-Time View:</strong> This paste was permanently destroyed from the server database upon opening.
             </span>
           </div>
-          <Badge variant="warning" className="shrink-0 text-[10px]">
-            Deleted
+          <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground">
+            Burned
           </Badge>
         </div>
       )}
@@ -342,53 +349,53 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
       {/* Finalized Sealed Notice */}
       {finalizedNotice && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-medium">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded bg-muted/40 border border-border text-foreground text-xs">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
+            <ShieldCheck className="h-4 w-4 shrink-0 text-foreground" />
             <span>
-              <strong>Sealed to Database:</strong> Collaborative edits have been re-encrypted with your AES key and permanently saved to the server. The live room is now locked.
+              <strong>Sealed:</strong> Edits re-encrypted and permanently saved. Live session locked.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/40 text-emerald-300">
+          <Badge variant="outline" className="shrink-0 text-[10px]">
             Finalized
           </Badge>
         </div>
       )}
 
       {/* Main Content Card */}
-      <div className="glass-panel rounded-3xl p-5 sm:p-7 flex flex-col gap-4 shadow-2xl relative overflow-hidden">
+      <div className="rounded-lg border border-border bg-card p-5 sm:p-7 flex flex-col gap-4 shadow-xl relative overflow-hidden">
         {/* Viewer Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/40">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <Badge variant="glow" className="text-xs capitalize font-semibold gap-1.5 py-1 px-3">
-              <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
-              Decrypted: {formatter}
-            </Badge>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted border border-border text-xs text-foreground font-bold uppercase">
+              <ShieldCheck className="h-3.5 w-3.5 text-foreground" />
+              <span>Decrypted: {formatter}</span>
+            </div>
 
             {formatter === 'markdown' && !isCollabEditing && (
-              <div className="flex items-center rounded-lg bg-muted/60 p-0.5 border border-border/40 text-xs">
+              <div className="flex items-center rounded bg-background p-0.5 border border-border text-xs">
                 <button
                   type="button"
                   onClick={() => setViewMode('formatted')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all text-xs font-mono ${
                     viewMode === 'formatted'
-                      ? 'bg-background text-foreground shadow-sm font-medium'
+                      ? 'bg-muted text-foreground font-bold'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <Sparkles className="h-3 w-3 text-foreground" />
                   Rendered
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('raw')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all text-xs font-mono ${
                     viewMode === 'raw'
-                      ? 'bg-background text-foreground shadow-sm font-medium'
+                      ? 'bg-muted text-foreground font-bold'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <FileText className="h-3 w-3" />
+                  <FileText className="h-3 w-3 text-foreground" />
                   Raw
                 </button>
               </div>
@@ -396,12 +403,12 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
             {canCollab && !isLocked && (
               <Button
-                variant={isCollabEditing ? 'glow' : 'outline'}
+                variant="outline"
                 size="sm"
                 onClick={() => setIsCollabEditing((prev) => !prev)}
-                className="h-8 text-xs gap-1.5 font-medium"
+                className="h-7 text-xs gap-1.5 font-mono border-border bg-background hover:bg-muted"
               >
-                <Edit3 className="h-3.5 w-3.5" />
+                <Edit3 className="h-3.5 w-3.5 text-foreground" />
                 <span>{isCollabEditing ? 'Reading View' : 'Live Collab Edit'}</span>
               </Button>
             )}
@@ -416,16 +423,16 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               variant="outline"
               size="sm"
               onClick={copyToClipboard}
-              className="gap-1.5 font-medium border-border/80"
+              className="gap-1.5 font-mono text-xs h-8 border-border bg-background hover:bg-muted"
             >
               {copied ? (
                 <>
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  <Check className="h-3.5 w-3.5 text-foreground" />
                   <span>Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5 text-foreground" />
                   <span>Copy Text</span>
                 </>
               )}
@@ -444,40 +451,40 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               }}
               onKeyDown={() => broadcastTyping()}
               placeholder="Type to collaborate in real-time..."
-              className="w-full min-h-[220px] rounded-2xl bg-black/50 border border-primary/40 p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 selection:bg-primary/30 resize-y"
+              className="w-full min-h-[240px] rounded bg-background border border-border p-4 font-mono text-xs sm:text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/50 resize-y"
             />
             <p className="text-[11px] text-muted-foreground flex items-center justify-between">
               <span>Edits are encrypted and broadcast to all connected peers in real-time.</span>
-              <span className="font-mono text-[10px] text-emerald-400">Live Sync Ready</span>
+              <span className="font-mono text-[10px] text-foreground">Live Sync Ready</span>
             </p>
           </div>
         ) : formatter === 'markdown' && viewMode === 'formatted' ? (
-          <div className="relative rounded-2xl bg-black/40 border border-white/5 p-5 sm:p-6 overflow-x-auto min-h-[140px]">
+          <div className="relative rounded bg-background/50 border border-border p-5 sm:p-6 overflow-x-auto min-h-[140px] text-foreground">
             <MarkdownPreview content={displayText} />
           </div>
         ) : (
-          <div className="relative rounded-2xl bg-black/40 border border-white/5 p-4 sm:p-5 overflow-x-auto min-h-[140px]">
-            <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words selection:bg-primary/30">
+          <div className="relative rounded bg-background/50 border border-border p-4 sm:p-5 overflow-x-auto min-h-[140px]">
+            <pre className="font-mono text-xs sm:text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
               {displayText}
             </pre>
           </div>
         )}
 
         {/* Metadata Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs text-muted-foreground border-t border-border/30">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs text-muted-foreground border-t border-border">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
+              <Clock className="h-3.5 w-3.5 text-foreground" />
               {meta?.createdAt ? new Date(meta.createdAt).toLocaleString() : 'Just now'}
             </span>
             {meta?.views !== undefined && (
               <span className="flex items-center gap-1">
-                <Eye className="h-3.5 w-3.5" />
+                <Eye className="h-3.5 w-3.5 text-foreground" />
                 View #{meta.views}
               </span>
             )}
           </div>
-          <Link href="/" className="text-primary hover:underline flex items-center gap-1">
+          <Link href="/" className="text-foreground hover:underline flex items-center gap-1">
             <PlusCircle className="h-3.5 w-3.5" />
             Create another paste
           </Link>
@@ -491,3 +498,5 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     </motion.div>
   );
 }
+
+export default PasteViewer;

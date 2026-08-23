@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * components/viewer/CommentSection.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * End-to-end encrypted comment thread for open discussion pastes.
+ * Strict monochrome styling matching Obsidian design standards.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -158,20 +166,20 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 mt-4">
+    <div className="w-full flex flex-col gap-6 mt-4 font-mono">
       {/* Section Header */}
-      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-purple-400" />
-          <h3 className="text-base font-bold text-foreground">
+          <MessageSquare className="h-4 w-4 text-foreground" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
             Encrypted Discussion
           </h3>
-          <Badge variant="outline" className="text-xs px-2 py-0">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
             {comments.length} {comments.length === 1 ? 'reply' : 'replies'}
           </Badge>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-          <ShieldCheck className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5 text-foreground" />
           <span>E2EE Comments</span>
         </div>
       </div>
@@ -179,24 +187,24 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
       {/* Comment Posting Form */}
       <form
         onSubmit={handleSubmit}
-        className="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-3 border border-border/60 focus-within:border-primary/50 transition-all"
+        className="rounded-lg border border-border bg-card p-4 sm:p-5 flex flex-col gap-3 shadow-lg transition-all"
       >
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-            <Lock className="h-3 w-3 text-blue-400" /> Choose your anonymous avatar:
+          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <Lock className="h-3 w-3 text-foreground" /> Choose your avatar:
           </span>
 
           {/* Avatar Icon Selector */}
-          <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/40">
+          <div className="flex items-center gap-1 bg-background p-1 rounded border border-border">
             {AVATAR_ICONS.map((icon) => (
               <button
                 key={icon}
                 type="button"
                 onClick={() => setSelectedIcon(icon)}
-                className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm transition-all ${
+                className={`h-6 w-6 flex items-center justify-center rounded text-xs transition-all ${
                   selectedIcon === icon
-                    ? 'bg-background shadow-sm scale-110'
-                    : 'opacity-60 hover:opacity-100 hover:scale-105'
+                    ? 'bg-muted border border-border shadow-sm'
+                    : 'opacity-50 hover:opacity-100'
                 }`}
               >
                 {icon}
@@ -209,24 +217,23 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Leave an encrypted response or feedback... Only holders of this link can decrypt and read it."
+          placeholder="Leave an encrypted response... Only holders of this link can decrypt and read it."
           rows={3}
           required
-          className="w-full bg-background/60 rounded-xl border border-border/60 p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y min-h-[80px]"
+          className="w-full bg-background rounded border border-border p-3 text-xs font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/50 resize-y min-h-[80px]"
         />
 
         {/* Submit Action */}
         <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[10px] text-muted-foreground">
             Encrypted client-side with AES-256-GCM
           </span>
 
           <Button
             type="submit"
             size="sm"
-            variant="glow"
             disabled={!content.trim() || isSubmitting}
-            className="gap-1.5 font-semibold px-4"
+            className="gap-1.5 font-bold font-mono text-xs px-4 h-8 bg-foreground text-background hover:opacity-90"
           >
             {isSubmitting ? (
               <>
@@ -244,60 +251,54 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
 
         {/* Error Alert */}
         {error && (
-          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs">
+          <div className="flex items-center gap-2 p-2.5 rounded bg-destructive/10 border border-destructive/25 text-destructive text-xs">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
       </form>
 
-      {/* Comments List */}
-      <div className="flex flex-col gap-3">
-        {isLoading ? (
-          <div className="flex items-center justify-center p-8 text-xs text-muted-foreground gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span>Decrypting thread replies...</span>
-          </div>
-        ) : comments.length === 0 ? (
-          <div className="glass-panel rounded-2xl p-6 text-center text-xs text-muted-foreground flex flex-col items-center gap-1.5 border border-border/40">
-            <MessageSquare className="h-6 w-6 text-muted-foreground/40 mb-1" />
-            <p className="font-medium text-foreground">No replies yet</p>
-            <p>Be the first to leave an encrypted response in this discussion thread.</p>
-          </div>
-        ) : (
-          <AnimatePresence>
+      {/* Comment List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center p-8 gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-foreground" />
+          <span>Decrypting discussion thread…</span>
+        </div>
+      ) : comments.length === 0 ? (
+        <div className="text-center py-6 text-xs text-muted-foreground border border-dashed border-border rounded-lg p-6">
+          No encrypted replies yet. Start the conversation above!
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <AnimatePresence initial={false}>
             {comments.map((comment) => (
               <motion.div
                 key={comment.id}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-2.5 border border-border/50 hover:border-primary/30 transition-colors"
+                exit={{ opacity: 0 }}
+                className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2 shadow-sm"
               >
-                {/* Header */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-base p-1 rounded-lg bg-muted/60 border border-border/40">
-                      {comment.icon || '💬'}
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      Anonymous Contributor
-                    </span>
+                    <span className="text-sm">{comment.icon || '💬'}</span>
+                    <span className="text-[11px] font-bold text-foreground">Anonymous Peer</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px]">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    <span>{new Date(comment.createdAt).toLocaleString()}</span>
-                  </div>
+                    {new Date(comment.createdAt).toLocaleString()}
+                  </span>
                 </div>
-
-                {/* Comment Content */}
-                <div className="rounded-xl bg-black/20 p-3 text-sm font-mono text-foreground whitespace-pre-wrap break-words leading-relaxed border border-white/5">
+                <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap pl-6">
                   {comment.plaintext}
-                </div>
+                </p>
               </motion.div>
             ))}
           </AnimatePresence>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
+
+export default CommentSection;
