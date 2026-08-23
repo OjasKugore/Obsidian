@@ -277,7 +277,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
           </div>
 
           {/* Editor Body with Line Numbers */}
-          <div className="flex flex-grow min-h-[440px] relative overflow-hidden bg-card/80">
+          <div className="flex flex-grow min-h-[440px] relative overflow-hidden bg-card">
             {/* Line Numbers Gutter */}
             <div className="w-12 shrink-0 bg-muted/40 border-r border-border py-4 flex flex-col items-end pr-2.5 text-muted-foreground/70 font-mono text-xs select-none">
               {Array.from({ length: Math.max(lineCount, 16) }).map((_, i) => (
@@ -288,7 +288,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 relative bg-background/50">
+            <div className="flex-1 relative bg-card">
               {formatter === 'markdown' && editorTab === 'preview' ? (
                 <div className="w-full h-full min-h-[440px] p-4 text-foreground overflow-y-auto">
                   <MarkdownPreview content={content} />

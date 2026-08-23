@@ -32,27 +32,27 @@
     /* Charcoal Grey #36454F Background with Warm Ivory #FFFFF0 Lettering */
     --background: 204 19% 26%;         /* #36454F - classic rich charcoal grey */
     --foreground: 60 100% 97%;         /* #FFFFF0 - warm ivory lettering */
-    --card: 204 20% 21%;               /* #2b373f - deep charcoal card */
+    --card: 204 19% 26%;               /* #36454F - matching rich charcoal grey */
     --card-foreground: 60 100% 97%;    /* #FFFFF0 - warm ivory */
-    --popover: 204 20% 21%;
+    --popover: 204 19% 26%;
     --popover-foreground: 60 100% 97%;
     --primary: 60 100% 97%;            /* #FFFFF0 */
     --primary-foreground: 204 19% 26%; /* #36454F */
-    --secondary: 204 18% 32%;          /* #435562 - elevated charcoal */
+    --secondary: 204 18% 21%;          /* #2d3840 - slightly deeper charcoal */
     --secondary-foreground: 60 100% 97%;
-    --muted: 204 18% 30%;             /* #3e4f5b - mid charcoal slate */
+    --muted: 204 18% 21%;             /* #2d3840 - contrast for headers/gutters */
     --muted-foreground: 60 20% 82%;    /* #dfdfcf - soft warm ivory silver */
-    --accent: 204 18% 34%;             /* #485b69 */
+    --accent: 204 18% 30%;             /* #3e4f5b */
     --accent-foreground: 60 100% 97%;
     --destructive: 0 62.8% 45%;
     --destructive-foreground: 60 100% 97%;
-    --border: 204 17% 36%;            /* #4c5f6e - soft charcoal border */
-    --input: 204 18% 30%;
+    --border: 204 15% 38%;            /* #526574 - refined soft charcoal border */
+    --input: 204 18% 21%;
     --ring: 60 100% 97%;
 
-    --glass-bg: rgba(43, 55, 63, 0.90);
-    --glass-border: rgba(255, 255, 240, 0.16);
-    --glass-glow: rgba(255, 255, 240, 0.05);
+    --glass-bg: rgba(54, 69, 79, 0.95);
+    --glass-border: rgba(255, 255, 240, 0.15);
+    --glass-glow: rgba(0, 0, 0, 0);
   }
 }
 
@@ -62,7 +62,7 @@
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.25);
   }
 
   .glass-card {
@@ -73,7 +73,7 @@
   }
 
   .soft-shadow {
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 240, 0.08);
+    box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 240, 0.08);
   }
 }
 
