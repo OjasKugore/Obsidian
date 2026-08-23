@@ -1,5 +1,6 @@
 import { Header } from '@/components/layout/Header';
 import { PasteViewer } from '@/components/viewer/PasteViewer';
+import { AuroraBackground } from '@/components/ui/AuroraBackground';
 
 export default async function ViewPastePage({
   params,
@@ -9,29 +10,24 @@ export default async function ViewPastePage({
   const { id } = await params;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
-      {/* Dynamic Background Accents */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-gradient-to-b from-blue-600/10 via-indigo-600/5 to-transparent blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/3 -left-48 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/2 -right-48 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
-
+    <AuroraBackground>
       {/* Navigation Header */}
       <Header />
 
       {/* Main Decrypted Viewer Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10 flex flex-col justify-center">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10 flex flex-col justify-center">
         <PasteViewer pasteId={id} />
       </main>
 
       {/* Minimal Footer */}
-      <footer className="w-full border-t border-border/30 py-6 text-center text-xs text-muted-foreground">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Obsidian &bull; Client-Side Decrypted View</span>
-          <span className="text-[11px]">
+      <footer className="w-full border-t border-border/20 py-5 text-center text-xs text-muted-foreground/80 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span className="font-girard tracking-wide text-foreground/90">Obsidian &bull; Client-Side Decrypted View</span>
+          <span className="text-[11px] font-mono text-muted-foreground/70">
             AES-256-GCM &bull; Key Isolated in URL Fragment
           </span>
         </div>
       </footer>
-    </div>
+    </AuroraBackground>
   );
 }
