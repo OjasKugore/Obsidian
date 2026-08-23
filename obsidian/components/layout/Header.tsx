@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import { Moon, Sun, Lock, PlusCircle } from 'lucide-react';
+import { Moon, Sun, Plus, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { IdentityPanel } from '@/components/header/IdentityPanel';
 
@@ -20,54 +20,64 @@ export function Header() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-center justify-between p-4 sm:p-6">
-      {/* Minimal Floating Brand Mark */}
-      <Link
-        href="/"
-        className="pointer-events-auto group flex items-center gap-2 px-3 py-1.5 rounded-2xl glass-panel border border-white/10 shadow-lg backdrop-blur-xl transition-transform active:scale-95 hover:border-primary/40"
-      >
-        <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-sm shadow-blue-500/20">
-          <Lock className="h-3 w-3 text-white" />
+    <header className="sticky top-0 z-40 w-full border-b border-[#27272a] bg-[#131313]/90 backdrop-blur-md transition-colors">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-8">
+        {/* Brand & Nav */}
+        <div className="flex items-center gap-8">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 transition-transform active:scale-95"
+          >
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-white text-black font-bold">
+              <Shield className="h-4 w-4 fill-black text-black" />
+            </div>
+            <span className="font-mono text-lg font-bold tracking-tight text-white">
+              OBSIDIAN
+            </span>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-6 text-xs font-mono text-[#8e9192]">
+            <span className="hover:text-white transition-colors cursor-pointer">Explore</span>
+            <span className="hover:text-white transition-colors cursor-pointer">Protocol</span>
+            <span className="hover:text-white transition-colors cursor-pointer">Security</span>
+          </nav>
         </div>
-        <span className="text-sm font-semibold tracking-tight text-foreground">
-          Obsidian
-        </span>
-      </Link>
 
-      {/* Floating Action Capsule (New Paste, Key Management, Theme Toggle) */}
-      <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 shadow-xl backdrop-blur-2xl">
-        <Link href="/">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2.5 sm:px-3 text-xs gap-1.5 rounded-xl hover:bg-white/10 text-foreground font-medium"
-          >
-            <PlusCircle className="h-3.5 w-3.5 text-primary" />
-            <span className="hidden sm:inline">New Paste</span>
-          </Button>
-        </Link>
+        {/* Right Tools & Identity */}
+        <div className="flex items-center gap-3">
+          {/* Identity key manager panel */}
+          <IdentityPanel />
 
-        {/* Identity key manager panel */}
-        <IdentityPanel />
+          {/* Theme switcher */}
+          {mounted && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="h-8 w-8 rounded text-[#8e9192] hover:text-white hover:bg-[#27272a]"
+              aria-label="Toggle theme"
+            >
+              {resolvedTheme === 'dark' ? (
+                <Sun className="h-4 w-4 transition-transform hover:rotate-45" />
+              ) : (
+                <Moon className="h-4 w-4 transition-transform hover:-rotate-12" />
+              )}
+            </Button>
+          )}
 
-        {/* Theme switcher */}
-        {mounted && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="h-8 w-8 rounded-xl hover:bg-white/10"
-            aria-label="Toggle theme"
-          >
-            {resolvedTheme === 'dark' ? (
-              <Sun className="h-3.5 w-3.5 text-amber-400 transition-transform hover:rotate-45" />
-            ) : (
-              <Moon className="h-3.5 w-3.5 text-slate-700 transition-transform hover:-rotate-12" />
-            )}
-          </Button>
-        )}
+          {/* Create Paste Link */}
+          <Link href="/">
+            <Button
+              size="sm"
+              className="h-8 px-3.5 text-xs font-semibold bg-white text-black hover:bg-neutral-200 gap-1.5 rounded transition-all"
+            >
+              <Plus className="h-3.5 w-3.5 text-black" />
+              <span>Create Paste</span>
+            </Button>
+          </Link>
+        </div>
       </div>
-    </div>
+    </header>
   );
 }
 

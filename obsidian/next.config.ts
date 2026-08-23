@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // Allow 127.0.0.1 and localhost dev origins
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+
   // Neon serverless driver + Prisma must run in Node.js runtime, not the Edge
   // bundler. This was `experimental.serverComponentsExternalPackages` in Next.js 14;
   // it moved to a top-level key in Next.js 15+.
