@@ -160,8 +160,8 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
               </svg>
             </motion.div>
 
-            {/* "OBSIDIAN" Typography - Bold Modern Sans in Warm Ivory */}
-            <div className="h-10 flex items-center justify-center overflow-hidden">
+            {/* "OBSIDIAN" Typography - Bold Modern Montserrat in Warm Ivory */}
+            <div className="h-12 flex items-center justify-center overflow-hidden">
               <motion.span
                 initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
                 animate={{
@@ -173,9 +173,9 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                   duration: 0.7,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="font-sans text-xl sm:text-2xl font-black tracking-[0.35em] uppercase text-[#FFFFF0]"
+                className="font-[family-name:var(--font-montserrat)] text-2xl sm:text-3xl font-black tracking-tighter uppercase text-[#FFFFF0] drop-shadow-sm"
               >
-                Obsidian
+                OBSIDIAN
               </motion.span>
             </div>
           </div>

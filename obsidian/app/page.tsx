@@ -56,7 +56,7 @@ export default function HomePage() {
           <footer className="w-full border-t border-border py-6 text-xs font-mono text-muted-foreground bg-muted/20 mt-auto">
             <div className="max-w-6xl mx-auto px-4 sm:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-3">
-                <span className="font-bold text-foreground tracking-wider">OBSIDIAN</span>
+                <span className="font-[family-name:var(--font-montserrat)] font-black text-sm tracking-tight text-foreground">OBSIDIAN</span>
                 <span>&bull;</span>
                 <span>© 2026 OBSIDIAN. ENCRYPTED & PERSISTENT.</span>
               </div>

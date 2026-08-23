@@ -25,31 +25,37 @@ export function Header() {
   const isHome = pathname === '/';
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background transition-colors">
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-sm transition-colors">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-8">
         {/* Brand & Nav */}
         <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="flex items-center gap-2.5 transition-transform active:scale-95"
+            className="group flex items-center gap-2.5 transition-all duration-150 cursor-pointer"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-foreground text-background font-bold">
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-foreground text-background font-bold transition-transform duration-200 group-hover:scale-105 shadow-sm">
               <Shield className="h-4 w-4 fill-current text-background" />
             </div>
-            <span className="font-mono text-lg font-bold tracking-tight text-foreground">
+            <span className="font-[family-name:var(--font-montserrat)] text-xl font-black tracking-tighter text-foreground group-hover:opacity-90 transition-opacity">
               OBSIDIAN
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs font-mono text-muted-foreground">
-            <span className="hover:text-foreground transition-colors cursor-pointer">Explore</span>
-            <span className="hover:text-foreground transition-colors cursor-pointer">Protocol</span>
-            <span className="hover:text-foreground transition-colors cursor-pointer">Security</span>
+          <nav className="hidden md:flex items-center gap-2 text-xs font-mono">
+            <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
+              Explore
+            </span>
+            <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
+              Protocol
+            </span>
+            <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
+              Security
+            </span>
           </nav>
         </div>
 
         {/* Right Tools & Identity */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Identity key manager panel */}
           <IdentityPanel />
 
@@ -59,7 +65,7 @@ export function Header() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+              className="h-8 w-8 rounded-lg border border-border/60 bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted hover:border-foreground/40 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer shadow-sm"
               aria-label="Toggle theme"
               id="theme-toggle-btn"
             >
@@ -76,7 +82,7 @@ export function Header() {
             <Link href="/">
               <Button
                 size="sm"
-                className="h-8 px-3.5 text-xs font-semibold bg-foreground text-background hover:opacity-90 gap-1.5 rounded transition-all"
+                className="h-8 px-3.5 text-xs font-semibold bg-foreground text-background hover:opacity-90 hover:scale-[1.02] active:scale-95 gap-1.5 rounded-lg transition-all shadow-md"
               >
                 <Plus className="h-3.5 w-3.5 text-background" />
                 <span>New Paste</span>

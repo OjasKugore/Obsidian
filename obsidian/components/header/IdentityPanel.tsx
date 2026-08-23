@@ -126,12 +126,12 @@ export function IdentityPanel() {
         id="identity-panel-btn"
         type="button"
         onClick={() => setIsOpen(true)}
-        className="relative flex h-8 w-8 items-center justify-center rounded border border-border bg-background hover:bg-muted transition-all group"
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-muted/30 hover:bg-muted hover:border-foreground/40 hover:scale-105 active:scale-95 transition-all duration-150 shadow-sm group cursor-pointer"
         aria-label="Identity key settings"
         title="RSA Identity Key"
       >
         <KeyRound className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-        {/* Status dot (Monochrome) */}
+        {/* Status dot */}
         <span
           className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border border-background transition-colors ${
             isLoading

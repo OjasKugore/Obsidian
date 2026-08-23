@@ -22,7 +22,7 @@ export default async function ViewPastePage({
       {/* Industrial Monochrome Footer */}
       <footer className="w-full border-t border-border py-6 text-xs font-mono text-muted-foreground bg-muted/20 mt-auto">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-bold text-foreground tracking-wider">OBSIDIAN &bull; Client-Side Decrypted View</span>
+          <span className="font-[family-name:var(--font-montserrat)] font-black text-xs tracking-tight text-foreground">OBSIDIAN &bull; Client-Side Decrypted View</span>
           <span className="text-[11px] font-mono text-muted-foreground">
             AES-256-GCM &bull; Key Isolated in URL Fragment
           </span>
