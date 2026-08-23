@@ -61,12 +61,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
   }
 
-  // ── Phase 1 stub: anonymous user data ─────────────────────────────────────
-  // Phase 3 will replace this with real user identity from session/keypair
+  // ── Phase 3: Pseudonym and avatar color generation ────────────────────────
+  const ADJECTIVES = ['Neon', 'Cipher', 'Quantum', 'Shadow', 'Obsidian', 'Velvet', 'Cobalt', 'Amber', 'Solar', 'Lunar', 'Astral', 'Silver'];
+  const ANIMALS = ['Fox', 'Ghost', 'Hawk', 'Lynx', 'Wolf', 'Panther', 'Viper', 'Griffin', 'Falcon', 'Raven', 'Eagle', 'Owl'];
+  const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
+
+  const hash = Math.abs(socket_id.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) | 0, 0));
+  const name = `${ADJECTIVES[hash % ADJECTIVES.length]} ${ANIMALS[(hash >> 3) % ANIMALS.length]}`;
+  const color = COLORS[hash % COLORS.length];
+
   const userData = {
-    user_id: socket_id, // Use socket_id as ephemeral user ID for now
+    user_id: socket_id,
     user_info: {
-      name: 'Anonymous',
+      name,
+      color,
     },
   };
 

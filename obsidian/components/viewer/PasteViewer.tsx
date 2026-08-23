@@ -17,11 +17,15 @@ import {
   Layers,
   Sparkles,
   KeyRound,
+  Edit3,
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
+import { useCollab } from '@/hooks/useCollab';
+import { encrypt } from '@/lib/crypto/cipher';
 import { ShardQuorumPanel } from '@/components/viewer/ShardQuorumPanel';
 import { PrivateKeyUnlock } from '@/components/viewer/PrivateKeyUnlock';
 import { CommentSection } from '@/components/viewer/CommentSection';
+import { CollabIndicator } from '@/components/collab/CollabIndicator';
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +59,82 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
 
   const [copied, setCopied] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'formatted' | 'raw'>('formatted');
+  const [isCollabEditing, setIsCollabEditing] = React.useState(false);
+  const [isLocked, setIsLocked] = React.useState(false);
+  const [isFinalizing, setIsFinalizing] = React.useState(false);
+  const [finalizedNotice, setFinalizedNotice] = React.useState(false);
+
+  const canCollab = Boolean(plaintext && rawKey && !isAsymmetric && !isBurned);
+
+  const handleRemoteLock = React.useCallback(() => {
+    setIsLocked(true);
+    setIsCollabEditing(false);
+    setFinalizedNotice(true);
+  }, []);
+
+  const {
+    isConnected: isCollabConnected,
+    isConnecting: isCollabConnecting,
+    isLocalMode,
+    collaborators,
+    currentUser,
+    typingUsers,
+    content: liveText,
+    broadcastContent,
+    broadcastLock,
+    broadcastTyping,
+    disconnect: disconnectCollab,
+  } = useCollab({
+    pasteId,
+    rawKey,
+    initialContent: plaintext || '',
+    formatter,
+    isAsymmetric,
+    enabled: canCollab && !isLocked,
+    onRemoteLock: handleRemoteLock,
+  });
+
+  const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');
+
+  const handleLockAndFinalize = async () => {
+    if (!rawKey || isFinalizing) return;
+    try {
+      setIsFinalizing(true);
+      // 1. Broadcast lock event immediately to all other connected tabs/peers
+      broadcastLock(displayText);
+
+      // 2. Re-encrypt current collaborative displayText locally with the rawKey
+      const enc = await encrypt(displayText, formatter, {
+        burnAfterReading: false,
+        openDiscussion: meta?.openDiscussion ?? true,
+        customKey: rawKey,
+      });
+
+      // 3. Persist updated ciphertext to DB
+      const res = await fetch(`/api/v1/paste/${pasteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          v: 2,
+          ct: enc.ciphertext,
+          adata: enc.adata,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to persist finalized paste');
+      }
+
+      setIsLocked(true);
+      setIsCollabEditing(false);
+      setFinalizedNotice(true);
+      disconnectCollab();
+    } catch (err) {
+      console.error('[handleLockAndFinalize]', err);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
 
   const copyToClipboard = async () => {
     if (!plaintext) return;
@@ -66,9 +146,6 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
       console.error('Failed to copy: ', err);
     }
   };
-
-  const lineCount = plaintext ? plaintext.split('\n').length : 0;
-  const charCount = plaintext ? plaintext.length : 0;
 
   // ── Loading & Decrypting State ──────────────────────────────────────────────
   if (isLoading || (isDecrypting && !isQuorumNeeded)) {
@@ -249,6 +326,35 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       )}
 
+      {/* Real-Time E2EE Collaboration Bar */}
+      {canCollab && (
+        <CollabIndicator
+          isConnected={isCollabConnected}
+          isConnecting={isCollabConnecting}
+          isLocalMode={isLocalMode}
+          collaborators={collaborators}
+          currentUser={currentUser}
+          typingUsers={typingUsers}
+          isLocked={isLocked}
+          onLockPaste={handleLockAndFinalize}
+        />
+      )}
+
+      {/* Finalized Sealed Notice */}
+      {finalizedNotice && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
+            <span>
+              <strong>Sealed to Database:</strong> Collaborative edits have been re-encrypted with your AES key and permanently saved to the server. The live room is now locked.
+            </span>
+          </div>
+          <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/40 text-emerald-300">
+            Finalized
+          </Badge>
+        </div>
+      )}
+
       {/* Main Content Card */}
       <div className="glass-panel rounded-3xl p-5 sm:p-7 flex flex-col gap-4 shadow-2xl relative overflow-hidden">
         {/* Viewer Toolbar */}
@@ -259,7 +365,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               Decrypted: {formatter}
             </Badge>
 
-            {formatter === 'markdown' && (
+            {formatter === 'markdown' && !isCollabEditing && (
               <div className="flex items-center rounded-lg bg-muted/60 p-0.5 border border-border/40 text-xs">
                 <button
                   type="button"
@@ -287,12 +393,24 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
                 </button>
               </div>
             )}
+
+            {canCollab && !isLocked && (
+              <Button
+                variant={isCollabEditing ? 'glow' : 'outline'}
+                size="sm"
+                onClick={() => setIsCollabEditing((prev) => !prev)}
+                className="h-8 text-xs gap-1.5 font-medium"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span>{isCollabEditing ? 'Reading View' : 'Live Collab Edit'}</span>
+              </Button>
+            )}
           </div>
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {lineCount} {lineCount === 1 ? 'line' : 'lines'} • {charCount.toLocaleString()} chars
+              {displayText.split('\n').length} {displayText.split('\n').length === 1 ? 'line' : 'lines'} • {displayText.length.toLocaleString()} chars
             </span>
             <Button
               variant="outline"
@@ -315,15 +433,32 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </div>
         </div>
 
-        {/* Content Display: Rendered Markdown vs Plaintext/Raw Code */}
-        {formatter === 'markdown' && viewMode === 'formatted' ? (
+        {/* Content Display: Collaborative Edit vs Rendered vs Raw */}
+        {isCollabEditing ? (
+          <div className="flex flex-col gap-2">
+            <textarea
+              value={displayText}
+              onChange={(e) => {
+                broadcastContent(e.target.value);
+                broadcastTyping();
+              }}
+              onKeyDown={() => broadcastTyping()}
+              placeholder="Type to collaborate in real-time..."
+              className="w-full min-h-[220px] rounded-2xl bg-black/50 border border-primary/40 p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 selection:bg-primary/30 resize-y"
+            />
+            <p className="text-[11px] text-muted-foreground flex items-center justify-between">
+              <span>⚡ Edits are encrypted and broadcast to all connected peers in real-time.</span>
+              <span className="font-mono text-[10px] text-emerald-400">Live Sync Ready</span>
+            </p>
+          </div>
+        ) : formatter === 'markdown' && viewMode === 'formatted' ? (
           <div className="relative rounded-2xl bg-black/40 border border-white/5 p-5 sm:p-6 overflow-x-auto min-h-[140px]">
-            <MarkdownPreview content={plaintext || ''} />
+            <MarkdownPreview content={displayText} />
           </div>
         ) : (
           <div className="relative rounded-2xl bg-black/40 border border-white/5 p-4 sm:p-5 overflow-x-auto min-h-[140px]">
             <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words selection:bg-primary/30">
-              {plaintext}
+              {displayText}
             </pre>
           </div>
         )}
