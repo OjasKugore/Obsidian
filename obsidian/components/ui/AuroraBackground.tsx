@@ -45,84 +45,70 @@ export function AuroraBackground({
   return (
     <div
       className={cn(
-        'aurora-global-canvas relative min-h-screen w-full overflow-hidden bg-background text-foreground',
+        'aurora-hero-wrapper relative min-h-screen w-full overflow-hidden text-foreground',
         className
       )}
       {...props}
     >
       <style>{`
-        .aurora-global-canvas {
-          --stripe-color: rgba(7, 11, 20, 0.95);
-          --aurora-blur: blur(40px) saturate(160%);
+        .aurora-hero-wrapper {
+          --stripe-color: #fff;
+          --bg-filter: blur(10px) invert(100%);
+          background: #050811;
         }
-        :is(.light) .aurora-global-canvas {
-          --stripe-color: rgba(248, 250, 252, 0.92);
-          --aurora-blur: blur(40px) saturate(140%);
+        :is(.light) .aurora-hero-wrapper {
+          --stripe-color: #000;
+          --bg-filter: blur(10px) opacity(60%) saturate(200%);
+          background: #f8fafc;
         }
-
-        @keyframes smoothAuroraMotion {
-          0% {
-            background-position: 0% 50%, 0% 50%;
-            transform: scale(1) rotate(0deg);
-          }
-          50% {
-            background-position: 100% 50%, 100% 50%;
-            transform: scale(1.05) rotate(1.5deg);
-          }
-          100% {
-            background-position: 200% 50%, 200% 50%;
-            transform: scale(1) rotate(0deg);
-          }
+        @keyframes smoothBg {
+          from { background-position: 50% 50%, 50% 50%; }
+          to { background-position: 350% 50%, 350% 50%; }
         }
-
-        .aurora-ambient-layer {
-          position: fixed;
-          inset: -10%;
-          width: 120%;
-          height: 120%;
-          pointer-events: none;
-          z-index: 0;
-          --stripes: repeating-linear-gradient(
-            115deg,
-            var(--stripe-color) 0%,
-            var(--stripe-color) 8%,
-            transparent 12%,
-            transparent 15%,
-            var(--stripe-color) 20%
-          );
-          --rainbow: repeating-linear-gradient(
-            115deg,
-            rgba(59, 130, 246, 0.35) 5%,
-            rgba(168, 85, 247, 0.30) 12%,
-            rgba(6, 182, 212, 0.25) 20%,
-            rgba(236, 72, 153, 0.20) 28%,
-            rgba(59, 130, 246, 0.35) 36%
-          );
-          background-image: var(--stripes), var(--rainbow);
-          background-size: 250% 250%, 200% 200%;
-          filter: var(--aurora-blur);
-          animation: smoothAuroraMotion 45s ease-in-out infinite;
-          opacity: 0.85;
-          mask-image: radial-gradient(ellipse at 50% 15%, black 45%, transparent 80%);
-          -webkit-mask-image: radial-gradient(ellipse at 50% 15%, black 45%, transparent 80%);
-        }
-
-        .aurora-ambient-glow {
+        .aurora-hero-bg {
+          width: 100%;
+          height: 100%;
           position: fixed;
           inset: 0;
           pointer-events: none;
           z-index: 0;
-          background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15), transparent 60%),
-                      radial-gradient(circle at 10% 40%, rgba(147, 51, 234, 0.1), transparent 50%),
-                      radial-gradient(circle at 90% 60%, rgba(6, 182, 212, 0.08), transparent 50%);
+          --stripes: repeating-linear-gradient(
+            100deg, 
+            var(--stripe-color) 0%, 
+            var(--stripe-color) 7%, 
+            transparent 10%, 
+            transparent 12%, 
+            var(--stripe-color) 16%
+          );
+          --rainbow: repeating-linear-gradient(
+            100deg, 
+            #60a5fa 10%, 
+            #e879f9 15%, 
+            #60a5fa 20%, 
+            #5eead4 25%, 
+            #60a5fa 30%
+          );
+          background-image: var(--stripes), var(--rainbow);
+          background-size: 300%, 200%;
+          background-position: 50% 50%, 50% 50%;
+          filter: var(--bg-filter);
+        }
+        .aurora-hero-bg::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: var(--stripes), var(--rainbow);
+          background-size: 200%, 100%;
+          animation: smoothBg 40s linear infinite;
+          background-attachment: fixed;
+          mix-blend-mode: difference;
         }
       `}</style>
 
-      {/* Animated Aurora Layers */}
-      <div className="aurora-ambient-layer" aria-hidden="true" />
-      <div className="aurora-ambient-glow" aria-hidden="true" />
+      {/* Fixed Aurora Shader Background */}
+      <div className="aurora-hero-bg" aria-hidden="true" />
 
-      {/* Fluted Glass Filter SVG */}
+      {/* Fluted Glass Filter SVG Definition */}
       {showFlutedGlass && (
         <svg
           version="1.1"
@@ -158,7 +144,7 @@ export function AuroraBackground({
         </svg>
       )}
 
-      {/* Foreground Content */}
+      {/* Foreground Interactive Content */}
       <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
     </div>
   );
