@@ -3,12 +3,12 @@
 /**
  * components/ui/IntroSplash.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Single, unified fullscreen lock screen intro animation:
- * 1. Starts with solid white background (#ffffff) and large black open lock.
- * 2. Lock shackle snaps down with spring physics.
- * 3. Screen and lock smoothly invert colors (dark #09090b, white lock).
+ * Complete, isolated fullscreen lock screen intro animation:
+ * 1. Initial screen is 100% solid pure white (#ffffff) with large black open lock.
+ * 2. Lock shackle snaps down into locked position with spring physics.
+ * 3. Canvas and lock smoothly invert colors (dark #09090b, white lock).
  * 4. "OBSIDIAN" typography fades in smoothly below the lock.
- * 5. Single overlay cleanly fades out directly into the normal UI.
+ * 5. Overlay smoothly fades out and transitions into the workspace.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -16,7 +16,7 @@ import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface IntroSplashProps {
-  onComplete?: () => void;
+  onComplete: () => void;
 }
 
 export function IntroSplash({ onComplete }: IntroSplashProps) {
@@ -32,14 +32,12 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
     const t1 = setTimeout(() => setStage('lock'), 700);
     const t2 = setTimeout(() => setStage('invert'), 1300);
     const t3 = setTimeout(() => setStage('text'), 1800);
-    const t4 = setTimeout(() => {
-      setStage('exit');
-      onComplete?.();
-    }, 2900);
+    const t4 = setTimeout(() => setStage('exit'), 2900);
     const t5 = setTimeout(() => {
       setStage('done');
       document.body.style.overflow = originalOverflow;
-    }, 3500);
+      onComplete();
+    }, 3450);
 
     return () => {
       document.body.style.overflow = originalOverflow;
@@ -59,14 +57,14 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
   const isExiting = stage === 'exit';
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {!isExiting && (
         <motion.div
           key="intro-splash-screen"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden"
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-[9999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden bg-white"
           style={{
             backgroundColor: isInverted ? '#09090b' : '#ffffff',
             transition: 'background-color 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
