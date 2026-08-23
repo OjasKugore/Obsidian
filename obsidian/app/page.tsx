@@ -7,6 +7,7 @@ import { PasteEditor } from '@/components/editor/PasteEditor';
 import { SharePanel } from '@/components/sharing/SharePanel';
 import { usePasteEncryption } from '@/hooks/usePasteEncryption';
 import { AuroraBackground } from '@/components/ui/AuroraBackground';
+import { IntroSplash } from '@/components/ui/IntroSplash';
 import { ShieldCheck } from 'lucide-react';
 
 const containerVariants = {
@@ -35,6 +36,9 @@ export default function HomePage() {
 
   return (
     <AuroraBackground>
+      {/* Intro Splash Animation (White bg -> Lock snap -> Inversion -> Obsidian reveal) */}
+      <IntroSplash />
+
       {/* Floating Header Actions */}
       <Header />
 
