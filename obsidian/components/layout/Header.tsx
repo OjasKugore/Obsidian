@@ -29,7 +29,7 @@ export function Header() {
         <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-sm shadow-blue-500/20">
           <Lock className="h-3 w-3 text-white" />
         </div>
-        <span className="font-girard text-sm font-semibold tracking-wide text-foreground">
+        <span className="text-sm font-semibold tracking-tight text-foreground">
           Obsidian
         </span>
       </Link>

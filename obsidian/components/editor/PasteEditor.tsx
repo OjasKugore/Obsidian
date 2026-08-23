@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { RecipientKeyInput } from '@/components/editor/RecipientKeyInput';
 import type { Expiry } from '@/lib/api/schemas';
 import type { EncryptionOptions, EncryptionResult } from '@/hooks/usePasteEncryption';
@@ -123,53 +122,45 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-4xl mx-auto flex flex-col gap-5"
-    >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* ── Top-Level Mutually Exclusive Recipient Selector ─────────────── */}
-        <div className="glass-panel rounded-3xl p-3 sm:p-4.5 border border-primary/20 bg-background/60 shadow-xl backdrop-blur-xl">
+        <div className="rounded-xl p-3.5 border border-border/50 bg-card/60 backdrop-blur-md">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex flex-col">
-              <span className="font-girard text-sm sm:text-base font-normal tracking-wide text-foreground">
-                Delivery Target
+              <span className="text-xs font-semibold text-foreground tracking-tight">
+                Delivery Mode
               </span>
               <span className="text-[11px] text-muted-foreground">
-                Select 1:1 individual encryption or multi-party threshold quorum
+                Choose 1-to-1 recipient encryption or multi-party Shamir threshold quorum
               </span>
             </div>
 
-            {/* Mutually Exclusive Mode Toggle Buttons */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/70 rounded-2xl border border-border/60">
-              {/* Single Recipient Option */}
+            {/* Mode Switcher */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-lg border border-border/40">
               <button
                 type="button"
                 onClick={() => setDeliveryTarget('single')}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                   deliveryTarget === 'single'
-                    ? 'bg-background text-foreground shadow-md ring-1 ring-primary/30 text-primary'
+                    ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <User className="h-4 w-4" />
+                <User className="h-3.5 w-3.5" />
                 <span>Single Recipient</span>
               </button>
 
-              {/* Multiple Recipients Option */}
               <button
                 type="button"
                 onClick={() => setDeliveryTarget('multiple')}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                   deliveryTarget === 'multiple'
-                    ? 'bg-background text-foreground shadow-md ring-1 ring-primary/30 text-primary'
+                    ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Users className="h-4 w-4" />
+                <Users className="h-3.5 w-3.5" />
                 <span>Multiple Recipients</span>
               </button>
             </div>
@@ -177,14 +168,14 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
         </div>
 
         {/* ── Main Editor Card ────────────────────────────────────────────── */}
-        <div className="glass-panel rounded-3xl p-5 sm:p-7 border border-primary/20 bg-background/70 shadow-2xl backdrop-blur-2xl transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/40 focus-within:shadow-[0_0_40px_-5px_rgba(59,130,246,0.25)]">
+        <div className="rounded-xl p-4 sm:p-5 border border-border/60 bg-card/80 shadow-lg backdrop-blur-lg transition-all focus-within:border-primary/50">
           {/* Editor Header / Format Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 mb-3 border-b border-border/40">
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/70 border border-border/50">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-border/40">
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/60 border border-border/40">
               <button
                 type="button"
                 onClick={() => handleFormatterChange('plaintext')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                   formatter === 'plaintext'
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -196,19 +187,19 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               <button
                 type="button"
                 onClick={() => handleFormatterChange('markdown')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                   formatter === 'markdown'
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
                 Markdown
               </button>
               <button
                 type="button"
                 onClick={() => handleFormatterChange('syntaxhighlighting')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                   formatter === 'syntaxhighlighting'
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -221,11 +212,11 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
 
             {/* Markdown Write / Preview Toggle */}
             {formatter === 'markdown' && (
-              <div className="flex items-center gap-1 p-0.5 rounded-xl bg-muted/70 border border-border/60 text-xs">
+              <div className="flex items-center gap-1 p-0.5 rounded-md bg-muted/70 border border-border/40 text-xs">
                 <button
                   type="button"
                   onClick={() => setEditorTab('write')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all font-medium ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all font-medium ${
                     editorTab === 'write'
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -237,7 +228,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                 <button
                   type="button"
                   onClick={() => setEditorTab('preview')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all font-medium ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all font-medium ${
                     editorTab === 'preview'
                       ? 'bg-background text-primary shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -252,9 +243,9 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             {/* Quick counters */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
               <span>{lineCount} {lineCount === 1 ? 'line' : 'lines'}</span>
-              <span>•</span>
+              <span>&bull;</span>
               <span>{charCount.toLocaleString()} chars</span>
-              <span>•</span>
+              <span>&bull;</span>
               <span>{(byteCount / 1024).toFixed(1)} KB</span>
             </div>
           </div>
@@ -262,7 +253,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
           {/* Text Area vs Live Markdown Preview */}
           <div className="relative">
             {formatter === 'markdown' && editorTab === 'preview' ? (
-              <div className="w-full min-h-[260px] p-4 rounded-2xl bg-black/40 border border-white/5 overflow-y-auto">
+              <div className="w-full min-h-[260px] p-4 rounded-lg bg-black/40 border border-border/40 overflow-y-auto">
                 <MarkdownPreview content={content} />
               </div>
             ) : (
@@ -272,26 +263,26 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   formatter === 'markdown'
-                    ? '# Confidential Document\n\nWrite your secret notes with **Markdown** formatting...\n\n- [x] Tasks & Checklists\n- Supports tables, links, and code blocks `const secret = ...`\n\nClick the **Preview** tab above to view rendered output.'
-                    : 'Paste or type confidential secrets, API keys, credentials, or private notes here...\n\nEverything is encrypted using AES-256-GCM directly inside your browser before transmission.'
+                    ? '# Confidential Document\n\nWrite your secret notes with Markdown formatting...\n\n- Task items\n- Code blocks `const token = ...`'
+                    : 'Paste confidential secrets, API tokens, configuration files, or private notes here...\n\nEverything is encrypted using AES-256-GCM directly inside your browser before transmission.'
                 }
-                rows={13}
+                rows={12}
                 required
-                className="w-full resize-y min-h-[260px] bg-transparent border-0 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+                className="w-full resize-y min-h-[240px] bg-transparent border-0 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
                 spellCheck={false}
                 autoFocus
               />
             )}
           </div>
 
-          {/* Bottom helper info */}
-          <div className="flex items-center justify-between pt-3.5 mt-2 border-t border-border/30 text-xs text-muted-foreground">
+          {/* Bottom info */}
+          <div className="flex items-center justify-between pt-3 mt-2 border-t border-border/40 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <Shield className="h-3.5 w-3.5 text-blue-400" />
-              <span>SubtleCrypto AES-256-GCM &bull; Client-Side PBKDF2</span>
+              <Shield className="h-3.5 w-3.5 text-primary" />
+              <span>SubtleCrypto AES-256-GCM &bull; Client-Side PBKDF2 (100k iterations)</span>
             </div>
-            <div className="hidden sm:block text-[11px] font-mono">
-              Press <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border/60">⌘+Enter</kbd> to encrypt
+            <div className="hidden sm:block text-[11px] font-mono text-muted-foreground/70">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted/80 border border-border/60">⌘+Enter</kbd> to encrypt
             </div>
           </div>
         </div>
@@ -302,69 +293,54 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             /* ── Single User Configuration: Symmetric vs Asymmetric ─────── */
             <motion.div
               key="single-user-config"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2 }}
-              className="glass-panel rounded-3xl p-4 sm:p-5 flex flex-col gap-4 border border-primary/20 bg-background/60"
+              className="rounded-xl p-4 flex flex-col gap-3 border border-border/50 bg-card/60"
             >
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="font-girard text-sm font-normal tracking-wide text-foreground">
-                    1:1 Encryption Channel
-                  </span>
-                </div>
-                <Badge variant="glow" className="text-[10px]">
-                  Direct Delivery
-                </Badge>
+              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
+                <User className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                  1-to-1 Encryption Channel
+                </span>
               </div>
 
               {/* Sub-mode choices: Symmetric vs Asymmetric */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* 1. Symmetric Link Mode */}
                 <div
                   onClick={() => setSingleSubMode('symmetric')}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col gap-2 ${
+                  className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1.5 ${
                     singleSubMode === 'symmetric'
-                      ? 'bg-primary/10 border-primary/50 ring-1 ring-primary/30'
-                      : 'bg-background/40 border-border/60 hover:border-border'
+                      ? 'bg-primary/10 border-primary/40'
+                      : 'bg-background/40 border-border/40 hover:border-border'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                      <Key className="h-4 w-4 text-blue-400" />
-                      <span>Symmetric Key in #Fragment</span>
-                    </div>
-                    <Badge variant="success" className="text-[9px] py-0 px-1.5">
-                      Standard
-                    </Badge>
+                  <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                    <Key className="h-3.5 w-3.5 text-primary" />
+                    <span>Symmetric Key in URL Fragment</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Decryption key stays in the URL fragment (<code className="font-mono text-blue-300">#key</code>). Never sent to the server. Recipient opens link to decrypt instantly.
+                    Decryption key stays after the URL hash fragment (<code className="font-mono text-primary/80">#key</code>). Never sent to the server.
                   </p>
                 </div>
 
                 {/* 2. Asymmetric RSA-OAEP Mode */}
                 <div
                   onClick={() => setSingleSubMode('asymmetric')}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col gap-2 ${
+                  className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1.5 ${
                     singleSubMode === 'asymmetric'
-                      ? 'bg-purple-500/10 border-purple-500/40 ring-1 ring-purple-500/30'
-                      : 'bg-background/40 border-border/60 hover:border-border'
+                      ? 'bg-primary/10 border-primary/40'
+                      : 'bg-background/40 border-border/40 hover:border-border'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                      <ShieldCheck className="h-4 w-4 text-purple-400" />
-                      <span>Asymmetric RSA-OAEP</span>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-purple-500/50 text-purple-300">
-                      Zero-URL-Key
-                    </Badge>
+                  <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                    <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                    <span>Asymmetric RSA-OAEP</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Encrypt specifically for recipient&apos;s RSA Public Key. Only the matching private key in their browser can unlock the AES key.
+                    Encrypt specifically for recipient&apos;s RSA Public Key. No decryption key in the URL.
                   </p>
                 </div>
               </div>
@@ -393,35 +369,31 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             /* ── Multiple Users Configuration: Shamir SSS Quorum ─────────── */
             <motion.div
               key="multi-user-config"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2 }}
-              className="glass-panel rounded-3xl p-4 sm:p-5 flex flex-col gap-4 border border-blue-500/30 bg-background/60"
+              className="rounded-xl p-4 flex flex-col gap-3 border border-border/50 bg-card/60"
             >
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
+              <div className="flex items-center justify-between pb-2 border-b border-border/40">
                 <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-primary" />
-                  <span className="font-girard text-sm font-normal tracking-wide text-foreground">
+                  <Layers className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                     Shamir&apos;s Secret Sharing Quorum
                   </span>
                 </div>
-                <Badge variant="glow" className="text-[10px]">
-                  {threshold}-of-{totalShares} Quorum
-                </Badge>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {threshold}-of-{totalShares} Required
+                </span>
               </div>
 
               {/* Shamir Sliders */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Threshold (k) */}
-                <div className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-background/60 border border-border/60">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-foreground">
-                      Required Threshold ($K$)
-                    </span>
-                    <Badge variant="glow" className="font-mono text-[11px]">
-                      {threshold} Shards
-                    </Badge>
+                <div className="flex flex-col gap-1 p-3 rounded-lg bg-background/50 border border-border/40">
+                  <div className="flex items-center justify-between text-xs font-medium text-foreground">
+                    <span>Required Threshold (K)</span>
+                    <span className="font-mono text-primary font-semibold">{threshold} Shards</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
                     Minimum shards required to reconstruct and decrypt
@@ -444,14 +416,10 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                 </div>
 
                 {/* Total Shares (n) */}
-                <div className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-background/60 border border-border/60">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-foreground">
-                      Total Shares ($N$)
-                    </span>
-                    <Badge variant="glow" className="font-mono text-[11px]">
-                      {totalShares} Shards
-                    </Badge>
+                <div className="flex flex-col gap-1 p-3 rounded-lg bg-background/50 border border-border/40">
+                  <div className="flex items-center justify-between text-xs font-medium text-foreground">
+                    <span>Total Shares (N)</span>
+                    <span className="font-mono text-primary font-semibold">{totalShares} Shards</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
                     Total unique shard links generated to distribute
@@ -475,8 +443,8 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </div>
 
               {/* Quorum Explanation */}
-              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2.5">
-                <Info className="h-4 w-4 shrink-0 mt-0.5 text-blue-400" />
+              <div className="p-2.5 rounded-lg bg-muted/40 border border-border/40 text-xs text-muted-foreground flex items-start gap-2">
+                <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
                 <span>
                   Any <strong>{threshold}</strong> of the <strong>{totalShares}</strong> generated shard links must be combined by recipients to reconstruct the decryption key. Individual shards reveal zero data.
                 </span>
@@ -486,11 +454,11 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
         </AnimatePresence>
 
         {/* ── Standard Options Bar (Expiry, Burn, Discussion, Submit) ──────── */}
-        <div className="glass-panel rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 border border-primary/20 bg-background/70 shadow-xl backdrop-blur-2xl">
+        <div className="rounded-xl p-3.5 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border border-border/50 bg-card/70 shadow-md">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             {/* Expiry Selector */}
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-400 shrink-0" />
+              <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <label htmlFor="expiry-select" className="text-xs font-medium text-muted-foreground shrink-0">
                 Expires in:
               </label>
@@ -498,7 +466,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                 id="expiry-select"
                 value={expire}
                 onChange={(e) => setExpire(e.target.value as Expiry)}
-                className="h-9 rounded-xl bg-background/90 border border-border/80 px-2.5 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                className="h-8 rounded-md bg-background border border-border px-2.5 py-1 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
               >
                 <option value="5min">5 minutes</option>
                 <option value="10min">10 minutes</option>
@@ -510,48 +478,41 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </select>
             </div>
 
-            <div className="h-5 w-[1px] bg-border/60 hidden sm:block" />
+            <div className="h-4 w-[1px] bg-border/60 hidden sm:block" />
 
             {/* Burn After Reading Toggle (Single user only) */}
             {!isShamir ? (
-              <label className="flex items-center gap-2 cursor-pointer select-none group">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={burnAfterReading}
                   onChange={(e) => setBurnAfterReading(e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background/80 cursor-pointer"
+                  className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background cursor-pointer"
                 />
                 <div className="flex items-center gap-1.5">
-                  <Flame className={`h-4 w-4 transition-colors ${burnAfterReading ? 'text-amber-400' : 'text-muted-foreground'}`} />
-                  <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                    Burn after reading
+                  <Flame className={`h-3.5 w-3.5 ${burnAfterReading ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                  <span className="text-xs font-medium text-foreground">
+                    Burn after reading (1 view)
                   </span>
                 </div>
-                {burnAfterReading && (
-                  <Badge variant="warning" className="text-[10px] py-0 px-1.5">
-                    1 view
-                  </Badge>
-                )}
               </label>
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-[10px]">
-                  Multi-shard access
-                </Badge>
+                <span>Multi-party distribution</span>
               </div>
             )}
 
             {/* Open Discussion Toggle */}
-            <label className="flex items-center gap-2 cursor-pointer select-none group">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={openDiscussion}
                 onChange={(e) => setOpenDiscussion(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background/80 cursor-pointer"
+                className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 bg-background cursor-pointer"
               />
               <div className="flex items-center gap-1.5">
-                <MessageSquare className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-foreground">
                   Open discussion
                 </span>
               </div>
@@ -561,34 +522,33 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
           {/* Submit Action */}
           <Button
             type="submit"
-            size="lg"
-            variant="glow"
+            size="default"
             disabled={
               !content.trim() ||
               isLoading ||
               (isAsymmetric && !validRecipientKey)
             }
-            className="w-full md:w-auto min-w-[200px] font-semibold gap-2 transition-all shadow-lg rounded-2xl h-11"
+            className="w-full md:w-auto min-w-[180px] font-medium gap-2 transition-all shadow-md h-9 text-xs"
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 <span>
                   {isShamir
                     ? 'Splitting & Encrypting...'
                     : isAsymmetric
-                    ? 'Wrapping Key & Encrypting...'
-                    : 'Encrypting & Storing...'}
+                    ? 'Wrapping Key...'
+                    : 'Encrypting...'}
                 </span>
               </>
             ) : (
               <>
                 {isShamir ? (
-                  <Layers className="h-4 w-4" />
+                  <Layers className="h-3.5 w-3.5" />
                 ) : isAsymmetric ? (
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-3.5 w-3.5" />
                 ) : (
-                  <Lock className="h-4 w-4" />
+                  <Lock className="h-3.5 w-3.5" />
                 )}
                 <span>
                   {isShamir
@@ -604,16 +564,12 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
 
         {/* Error Alert */}
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2.5 p-4 rounded-2xl border border-destructive/40 bg-destructive/10 text-destructive text-sm"
-          >
-            <AlertCircle className="h-5 w-5 shrink-0" />
+          <div className="flex items-center gap-2.5 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-xs">
+            <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
-          </motion.div>
+          </div>
         )}
       </form>
-    </motion.div>
+    </div>
   );
 }

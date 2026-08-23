@@ -7,24 +7,25 @@ import { PasteEditor } from '@/components/editor/PasteEditor';
 import { SharePanel } from '@/components/sharing/SharePanel';
 import { usePasteEncryption } from '@/hooks/usePasteEncryption';
 import { AuroraBackground } from '@/components/ui/AuroraBackground';
+import { ShieldCheck } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.05,
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
     },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 14 },
+  hidden: { opacity: 0, y: 10 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
   },
 };
 
@@ -34,40 +35,41 @@ export default function HomePage() {
 
   return (
     <AuroraBackground>
-      {/* Persistent Navigation Header */}
+      {/* Floating Header Actions */}
       <Header />
 
-      {/* Main Staggered Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-8 flex flex-col gap-6 justify-center">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-12 flex flex-col gap-6 justify-center">
         {!result && (
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="flex flex-col items-center text-center gap-3.5 max-w-3xl mx-auto w-full pt-2"
+            className="flex flex-col items-center text-center gap-3 max-w-2xl mx-auto w-full"
           >
-            {/* Minimal Eyebrow */}
+            {/* Serious, Clean Eyebrow */}
             <motion.div variants={itemVariants}>
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-medium tracking-wide uppercase bg-primary/15 border border-primary/30 text-primary-foreground/90 backdrop-blur-md shadow-md">
-                ✦ Zero-Knowledge Cryptographic Vault
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium tracking-wider uppercase bg-muted/80 border border-border text-muted-foreground font-mono">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                Zero-Knowledge Cryptographic Vault
               </span>
             </motion.div>
 
-            {/* Girard Editorial Headline */}
+            {/* Serious, Professional Headline */}
             <motion.h1
               variants={itemVariants}
-              className="font-girard text-4xl sm:text-6xl font-normal tracking-tight text-white leading-[1.08] select-none drop-shadow-[0_4px_30px_rgba(0,0,0,0.7)]"
+              className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-foreground leading-[1.15]"
             >
-              Private notes,{' '}
-              <span className="italic text-gradient">unbreakable</span> privacy.
+              End-to-End Encrypted.{' '}
+              <span className="text-muted-foreground font-normal">Zero-Knowledge.</span>
             </motion.h1>
 
-            {/* Concise, Uncluttered Subtitle */}
+            {/* Crisp, Professional Subtitle */}
             <motion.p
               variants={itemVariants}
-              className="text-xs sm:text-sm text-foreground/80 max-w-md leading-relaxed font-normal"
+              className="text-xs sm:text-sm text-muted-foreground max-w-lg leading-relaxed font-normal"
             >
-              Encrypted in your browser using <strong>AES-256-GCM</strong>. Decryption keys exist only in the link hash and never touch the server.
+              Data is encrypted with <strong>AES-256-GCM</strong> directly in your browser. Decryption keys exist only in the URL hash fragment and never touch the server.
             </motion.p>
           </motion.div>
         )}
@@ -79,10 +81,10 @@ export default function HomePage() {
           ) : (
             <motion.div
               key="editor-wrap"
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.4, delay: 0.15 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.3 }}
             >
               <PasteEditor
                 onEncrypt={encryptAndSubmit}
@@ -94,12 +96,12 @@ export default function HomePage() {
         </AnimatePresence>
       </main>
 
-      {/* Minimal Footer */}
-      <footer className="w-full border-t border-border/20 py-5 text-center text-xs text-muted-foreground/80 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-girard tracking-wide text-foreground/90">Obsidian &bull; End-to-End Encrypted</span>
-          <span className="text-[11px] font-mono text-muted-foreground/70">
-            SubtleCrypto AES-256-GCM &bull; 100k PBKDF2 &bull; Client-Side Verification
+      {/* Clean, Minimalist Footer */}
+      <footer className="w-full border-t border-border/40 py-5 text-center text-xs text-muted-foreground font-mono">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>Obsidian &bull; AES-256-GCM Zero-Knowledge Pastebin</span>
+          <span className="text-[11px] text-muted-foreground/70">
+            PBKDF2-SHA256 &bull; Client-Side Decryption
           </span>
         </div>
       </footer>

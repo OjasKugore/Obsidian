@@ -447,7 +447,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               className="w-full min-h-[220px] rounded-2xl bg-black/50 border border-primary/40 p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 selection:bg-primary/30 resize-y"
             />
             <p className="text-[11px] text-muted-foreground flex items-center justify-between">
-              <span>⚡ Edits are encrypted and broadcast to all connected peers in real-time.</span>
+              <span>Edits are encrypted and broadcast to all connected peers in real-time.</span>
               <span className="font-mono text-[10px] text-emerald-400">Live Sync Ready</span>
             </p>
           </div>

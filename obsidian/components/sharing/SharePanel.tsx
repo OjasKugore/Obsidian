@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 import {
   Check,
   Copy,
@@ -34,19 +33,8 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
   const [isDeleted, setIsDeleted] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
-  // Trigger celebratory confetti on mount
-  React.useEffect(() => {
-    try {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.65 },
-        colors: ['#3b82f6', '#8b5cf6', '#06b6d4'],
-      });
-    } catch {
-      // Confetti fallback
-    }
-  }, []);
+  // No decorative confetti on mount
+  React.useEffect(() => {}, []);
 
   const copyToClipboard = async (text: string, index: number | 'token' | 'all' = 0) => {
     try {
@@ -391,7 +379,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                       className="w-full text-xs h-8 gap-1.5 font-medium mt-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      <span>{isDeleting ? 'Deleting...' : '🗑 Destroy Paste on Server Now'}</span>
+                      <span>{isDeleting ? 'Deleting...' : 'Destroy Paste on Server Now'}</span>
                     </Button>
 
                     {deleteError && (

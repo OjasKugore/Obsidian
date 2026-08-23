@@ -122,7 +122,7 @@ export function ShardQuorumPanel({
           <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
             <span>
               {neededCount === 0
-                ? '✅ Quorum reached! Reconstructing secret...'
+                ? 'Quorum reached. Reconstructing secret...'
                 : `Need ${neededCount} more unique shard${neededCount === 1 ? '' : 's'} to reconstruct key`}
             </span>
             <span>Total distributed: {totalShards}</span>

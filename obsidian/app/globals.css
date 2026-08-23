@@ -2,57 +2,56 @@
 
 @layer base {
   :root {
-    --background: 220 20% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 4.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 4.9%;
+    --popover-foreground: 0 0% 98%;
     --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 46%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 12%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
     --ring: 217 91% 60%;
     --radius: 0.75rem;
 
-    --glass-bg: rgba(255, 255, 255, 0.75);
-    --glass-border: rgba(0, 0, 0, 0.08);
-    --glass-glow: rgba(59, 130, 246, 0.12);
+    --glass-bg: rgba(18, 18, 23, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-glow: rgba(59, 130, 246, 0.1);
   }
 
   .dark {
-    /* Obsidian Premium Dark Navy */
-    --background: 222 47% 6%;         /* #070b14 */
-    --foreground: 210 40% 98%;        /* #f8fafc */
-    --card: 222 45% 9%;              /* #0d1527 */
-    --card-foreground: 210 40% 98%;
-    --popover: 222 45% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;           /* #3b82f6 */
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 15%;         /* #162032 */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 13%;             /* #121a29 */
-    --muted-foreground: 215 20% 65%;  /* #94a3b8 */
-    --accent: 217 33% 16%;            /* #1b263b */
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 16%;            /* #1b263b */
-    --input: 217 33% 16%;
+    --background: 240 10% 3.9%;        /* #09090b */
+    --foreground: 0 0% 98%;           /* #fafafa */
+    --card: 240 10% 4.9%;             /* #0c0c0e */
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 4.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;          /* #3b82f6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 12%;            /* #18181b */
+    --muted-foreground: 240 5% 64.9%; /* #a1a1aa */
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;         /* #27272a */
+    --input: 240 3.7% 15.9%;
     --ring: 217 91% 60%;
 
-    --glass-bg: rgba(13, 21, 39, 0.45);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-glow: rgba(59, 130, 246, 0.25);
+    --glass-bg: rgba(15, 15, 18, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-glow: rgba(59, 130, 246, 0.15);
   }
 }
 
@@ -62,7 +61,7 @@
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.5);
   }
 
   .glass-card {
@@ -73,26 +72,18 @@
   }
 
   .glow-blue {
-    box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.3);
-  }
-
-  .glow-cyan {
-    box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.3);
-  }
-
-  .font-girard {
-    font-family: var(--font-girard), Georgia, "Times New Roman", serif;
+    box-shadow: 0 0 20px -3px rgba(59, 130, 246, 0.25);
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, #60a5fa 0%, #a855f7 50%, #ec4899 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
-  .text-gradient-cyan {
-    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+  .text-gradient-blue {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -108,8 +99,8 @@ body {
 
 /* Custom modern scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -117,12 +108,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.3);
 }
 
 /* Decryption blur-to-clear keyframe */
@@ -140,139 +131,5 @@ body {
 }
 
 .animate-decrypt-reveal {
-  animation: decryptReveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* ── Global Aurora Shader Background Styles ──────────────────────────────── */
-@keyframes driftOrb1 {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(80px, -60px) scale(1.2);
-  }
-  66% {
-    transform: translate(-50px, 40px) scale(0.9);
-  }
-}
-
-@keyframes driftOrb2 {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1.1);
-  }
-  33% {
-    transform: translate(-90px, 70px) scale(0.85);
-  }
-  66% {
-    transform: translate(60px, -50px) scale(1.25);
-  }
-}
-
-@keyframes driftOrb3 {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(0.95);
-  }
-  50% {
-    transform: translate(70px, 50px) scale(1.2);
-  }
-}
-
-@keyframes waveMotion {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.aurora-sphere-1 {
-  position: fixed;
-  top: -15vh;
-  left: -5vw;
-  width: 60vw;
-  height: 60vw;
-  max-width: 850px;
-  max-height: 850px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.65) 0%, rgba(99, 102, 241, 0.45) 45%, transparent 70%);
-  filter: blur(80px);
-  animation: driftOrb1 22s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.aurora-sphere-2 {
-  position: fixed;
-  top: 10vh;
-  right: -10vw;
-  width: 55vw;
-  height: 55vw;
-  max-width: 800px;
-  max-height: 800px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.6) 0%, rgba(217, 70, 239, 0.45) 40%, transparent 70%);
-  filter: blur(85px);
-  animation: driftOrb2 26s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.aurora-sphere-3 {
-  position: fixed;
-  bottom: -15vh;
-  left: 15vw;
-  width: 55vw;
-  height: 55vw;
-  max-width: 750px;
-  max-height: 750px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.6) 0%, rgba(16, 185, 129, 0.4) 45%, transparent 70%);
-  filter: blur(85px);
-  animation: driftOrb3 24s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.aurora-sphere-4 {
-  position: fixed;
-  top: 45vh;
-  left: -10vw;
-  width: 45vw;
-  height: 45vw;
-  max-width: 650px;
-  max-height: 650px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, rgba(14, 165, 233, 0.35) 45%, transparent 70%);
-  filter: blur(75px);
-  animation: driftOrb1 28s ease-in-out infinite reverse;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.aurora-curtain {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 2;
-  opacity: 0.8;
-  background: linear-gradient(
-    130deg,
-    rgba(99, 102, 241, 0.35) 0%,
-    rgba(168, 85, 247, 0.4) 20%,
-    rgba(236, 72, 153, 0.45) 40%,
-    rgba(6, 182, 212, 0.4) 60%,
-    rgba(16, 185, 129, 0.35) 80%,
-    rgba(99, 102, 241, 0.35) 100%
-  );
-  background-size: 350% 350%;
-  animation: waveMotion 20s ease-in-out infinite;
-  mask-image: radial-gradient(ellipse at 50% 40%, black 50%, transparent 90%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 50%, transparent 90%);
-  mix-blend-mode: screen;
+  animation: decryptReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
