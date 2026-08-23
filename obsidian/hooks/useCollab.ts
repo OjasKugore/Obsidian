@@ -37,6 +37,17 @@ export interface EncryptedTypingMessage {
   senderId: string;
 }
 
+const ADJECTIVES = ['Neon', 'Cipher', 'Quantum', 'Shadow', 'Obsidian', 'Velvet', 'Cobalt', 'Amber', 'Solar', 'Lunar', 'Astral', 'Silver'];
+const ANIMALS = ['Fox', 'Ghost', 'Hawk', 'Lynx', 'Wolf', 'Panther', 'Viper', 'Griffin', 'Falcon', 'Raven', 'Eagle', 'Owl'];
+const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#6366f1', '#14b8a6'];
+
+function generateRandomPeer(tabId: string): Collaborator {
+  const hash = Math.abs(tabId.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) | 0, 0));
+  const name = `${ADJECTIVES[hash % ADJECTIVES.length]} ${ANIMALS[(hash >> 3) % ANIMALS.length]}`;
+  const color = COLORS[hash % COLORS.length];
+  return { id: tabId, name, color };
+}
+
 export function useCollab({
   pasteId,
   rawKey,
@@ -55,173 +66,245 @@ export function useCollab({
   const [isLocalMode, setIsLocalMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const tabIdRef = useRef<string>('');
   const pusherRef = useRef<PusherClient | null>(null);
   const channelRef = useRef<PresenceChannel | null>(null);
-  const myUserIdRef = useRef<string>('');
+  const bcRef = useRef<BroadcastChannel | null>(null);
   const typingTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const broadcastThrottleRef = useRef<NodeJS.Timeout | null>(null);
   const isBroadcastingRef = useRef(false);
 
-  // ── 1. Connect to Pusher Presence Channel ─────────────────────────────────────
+  // ── BroadcastChannel (Seamless Cross-Tab Sync) + Pusher (Remote Sync) ─────────
   useEffect(() => {
     if (!enabled || !pasteId || !rawKey || isAsymmetric) {
       return;
     }
     let cancelled = false;
 
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1';
-
-    if (!pusherKey) {
-      const timer = setTimeout(() => {
-        if (!cancelled) {
-          setIsLocalMode(true);
-          setIsConnected(true);
-          setCurrentUser({
-            id: 'local-me',
-            name: 'Local Cipher (Offline)',
-            color: '#3b82f6',
-          });
-        }
-      }, 0);
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
+    if (!tabIdRef.current) {
+      tabIdRef.current = Math.random().toString(36).slice(2, 9);
     }
+    const tabId = tabIdRef.current;
+    const myPeer = generateRandomPeer(tabId);
 
-    try {
-      const client = new PusherClient(pusherKey, {
-        cluster: pusherCluster,
-        authEndpoint: '/api/v1/collab/auth',
-      });
-      pusherRef.current = client;
-
-      const channelName = `presence-collab-${pasteId}`;
-      const channel = client.subscribe(channelName) as PresenceChannel;
-      channelRef.current = channel;
-
-      channel.bind('pusher:subscription_succeeded', (members: {
-        count: number;
-        myID: string;
-        me: { id: string; info: { name: string; color: string } };
-        members: Record<string, { name: string; color: string }>;
-      }) => {
-        if (cancelled) return;
-        setIsConnecting(false);
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        setCurrentUser(myPeer);
+        setCollaborators([myPeer]);
         setIsConnected(true);
-        myUserIdRef.current = members.myID;
+      }
+    }, 0);
 
-        if (members.me) {
-          setCurrentUser({
-            id: members.myID,
-            name: members.me.info?.name || 'You',
-            color: members.me.info?.color || '#3b82f6',
-          });
-        }
+    // 1. Setup Browser BroadcastChannel for instant local multi-tab sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel(`obsidian-collab-${pasteId}`);
+        bcRef.current = bc;
 
-        const list: Collaborator[] = [];
-        for (const [id, info] of Object.entries(members.members)) {
-          list.push({
-            id,
-            name: info?.name || 'Anonymous',
-            color: info?.color || '#8b5cf6',
-          });
-        }
-        setCollaborators(list);
-      });
+        bc.onmessage = async (event: MessageEvent) => {
+          if (cancelled || !event.data) return;
+          const msg = event.data;
 
-      channel.bind('pusher:member_added', (member: { id: string; info: { name: string; color: string } }) => {
-        if (cancelled) return;
-        setCollaborators((prev) => {
-          if (prev.some((m) => m.id === member.id)) return prev;
-          return [
-            ...prev,
-            {
-              id: member.id,
-              name: member.info?.name || 'Collaborator',
-              color: member.info?.color || '#10b981',
-            },
-          ];
-        });
-      });
+          if (msg.type === 'peer-ping' && msg.senderId !== tabId) {
+            // Respond with our peer info
+            bc?.postMessage({
+              type: 'peer-pong',
+              peer: myPeer,
+              senderId: tabId,
+            });
+            setCollaborators((prev) => {
+              if (prev.some((p) => p.id === msg.peer.id)) return prev;
+              return [...prev, msg.peer];
+            });
+          }
 
-      channel.bind('pusher:member_removed', (member: { id: string }) => {
-        if (cancelled) return;
-        setCollaborators((prev) => prev.filter((m) => m.id !== member.id));
-        setTypingUsers((prev) => {
-          const collab = collaborators.find((c) => c.id === member.id);
-          return collab ? prev.filter((name) => name !== collab.name) : prev;
-        });
-      });
+          if (msg.type === 'peer-pong' && msg.senderId !== tabId) {
+            setCollaborators((prev) => {
+              if (prev.some((p) => p.id === msg.peer.id)) return prev;
+              return [...prev, msg.peer];
+            });
+          }
 
-      channel.bind('pusher:subscription_error', (err: unknown) => {
-        console.error('[useCollab] Subscription error:', err);
-        if (!cancelled) {
-          setIsConnecting(false);
-          setIsConnected(false);
-          setError('Could not connect to live collaboration room.');
-        }
-      });
+          if (msg.type === 'peer-leave') {
+            setCollaborators((prev) => prev.filter((p) => p.id !== msg.senderId));
+            setTypingUsers((prev) => prev.filter((n) => n !== msg.name));
+          }
 
-      // ── 2. Handle incoming encrypted text deltas ────────────────────────────
-      channel.bind('client-delta', async (data: EncryptedDeltaMessage) => {
-        if (!data || data.senderId === myUserIdRef.current) {
-          return; // Ignore our own broadcasted echoes
-        }
-
-        try {
-          // Decrypt payload in browser with shared raw AES key
-          const decryptedText = await decrypt(data.ct, data.adata, rawKey);
-          if (!cancelled) {
-            isBroadcastingRef.current = true;
-            setContent(decryptedText);
-            if (onRemoteContent) {
-              onRemoteContent(decryptedText);
+          if (msg.type === 'client-delta' && msg.senderId !== tabId) {
+            try {
+              const decrypted = await decrypt(msg.ct, msg.adata, rawKey);
+              if (!cancelled) {
+                isBroadcastingRef.current = true;
+                setContent(decrypted);
+                if (onRemoteContent) onRemoteContent(decrypted);
+              }
+            } catch (err) {
+              console.warn('[useCollab BC] Decrypt failed:', err);
             }
           }
-        } catch (decErr) {
-          console.warn('[useCollab] Failed to decrypt remote delta:', decErr);
-        }
-      });
 
-      // ── 3. Handle incoming encrypted typing signals ─────────────────────────
-      channel.bind('client-typing', async (data: EncryptedTypingMessage) => {
-        if (!data || data.senderId === myUserIdRef.current) return;
+          if (msg.type === 'client-typing' && msg.senderId !== tabId) {
+            try {
+              const decrypted = await decrypt(msg.ct, msg.adata, rawKey);
+              const parsed = JSON.parse(decrypted) as { name: string; isTyping: boolean };
+              if (parsed.isTyping && parsed.name && !cancelled) {
+                setTypingUsers((prev) =>
+                  prev.includes(parsed.name) ? prev : [...prev, parsed.name]
+                );
 
-        try {
-          const decrypted = await decrypt(data.ct, data.adata, rawKey);
-          const parsed = JSON.parse(decrypted) as { name: string; isTyping: boolean };
+                const existingTimer = typingTimerRef.current.get(msg.senderId);
+                if (existingTimer) clearTimeout(existingTimer);
 
-          if (parsed.isTyping && parsed.name && !cancelled) {
-            setTypingUsers((prev) => (prev.includes(parsed.name) ? prev : [...prev, parsed.name]));
+                const t = setTimeout(() => {
+                  setTypingUsers((prev) => prev.filter((n) => n !== parsed.name));
+                  typingTimerRef.current.delete(msg.senderId);
+                }, 2500);
 
-            const existingTimer = typingTimerRef.current.get(data.senderId);
-            if (existingTimer) clearTimeout(existingTimer);
-
-            const timer = setTimeout(() => {
-              setTypingUsers((prev) => prev.filter((n) => n !== parsed.name));
-              typingTimerRef.current.delete(data.senderId);
-            }, 2500);
-
-            typingTimerRef.current.set(data.senderId, timer);
+                typingTimerRef.current.set(msg.senderId, t);
+              }
+            } catch {
+              // ignore invalid typing signal
+            }
           }
-        } catch {
-          // silently ignore invalid typing ping
-        }
-      });
-    } catch (err: unknown) {
-      console.error('[useCollab ERROR]', err);
+        };
+
+        // Announce our presence to all existing tabs
+        bc.postMessage({ type: 'peer-ping', peer: myPeer, senderId: tabId });
+      } catch (err) {
+        console.warn('[useCollab] BroadcastChannel init error:', err);
+      }
+    }
+
+    // 2. Setup Pusher WSS (if valid, non-placeholder credentials configured)
+    const rawPusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const isPusherConfigured =
+      Boolean(rawPusherKey) &&
+      rawPusherKey !== 'YOUR_PUSHER_KEY' &&
+      !rawPusherKey?.startsWith('YOUR_');
+
+    if (!isPusherConfigured) {
       setTimeout(() => {
         if (!cancelled) {
-          setIsConnecting(false);
-          setError('Failed to initialize live collaboration.');
+          setIsLocalMode(true);
         }
       }, 0);
+    } else {
+      const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1';
+      try {
+        const client = new PusherClient(rawPusherKey!, {
+          cluster: pusherCluster,
+          authEndpoint: '/api/v1/collab/auth',
+        });
+        pusherRef.current = client;
+
+        const channelName = `presence-collab-${pasteId}`;
+        const channel = client.subscribe(channelName) as PresenceChannel;
+        channelRef.current = channel;
+
+        channel.bind('pusher:subscription_succeeded', (members: {
+          count: number;
+          myID: string;
+          me: { id: string; info: { name: string; color: string } };
+          members: Record<string, { name: string; color: string }>;
+        }) => {
+          if (cancelled) return;
+          setIsConnecting(false);
+          setIsConnected(true);
+
+          if (members.me) {
+            setCurrentUser({
+              id: members.myID,
+              name: members.me.info?.name || myPeer.name,
+              color: members.me.info?.color || myPeer.color,
+            });
+          }
+
+          const list: Collaborator[] = [];
+          for (const [id, info] of Object.entries(members.members)) {
+            list.push({
+              id,
+              name: info?.name || 'Anonymous',
+              color: info?.color || '#8b5cf6',
+            });
+          }
+          setCollaborators(list);
+        });
+
+        channel.bind('pusher:member_added', (member: { id: string; info: { name: string; color: string } }) => {
+          if (cancelled) return;
+          setCollaborators((prev) => {
+            if (prev.some((m) => m.id === member.id)) return prev;
+            return [
+              ...prev,
+              {
+                id: member.id,
+                name: member.info?.name || 'Collaborator',
+                color: member.info?.color || '#10b981',
+              },
+            ];
+          });
+        });
+
+        channel.bind('pusher:member_removed', (member: { id: string }) => {
+          if (cancelled) return;
+          setCollaborators((prev) => prev.filter((m) => m.id !== member.id));
+        });
+
+        channel.bind('client-delta', async (data: EncryptedDeltaMessage) => {
+          if (!data || data.senderId === tabId) return;
+          try {
+            const decrypted = await decrypt(data.ct, data.adata, rawKey);
+            if (!cancelled) {
+              isBroadcastingRef.current = true;
+              setContent(decrypted);
+              if (onRemoteContent) onRemoteContent(decrypted);
+            }
+          } catch (decErr) {
+            console.warn('[useCollab Pusher] Decrypt failed:', decErr);
+          }
+        });
+
+        channel.bind('client-typing', async (data: EncryptedTypingMessage) => {
+          if (!data || data.senderId === tabId) return;
+          try {
+            const decrypted = await decrypt(data.ct, data.adata, rawKey);
+            const parsed = JSON.parse(decrypted) as { name: string; isTyping: boolean };
+            if (parsed.isTyping && parsed.name && !cancelled) {
+              setTypingUsers((prev) =>
+                prev.includes(parsed.name) ? prev : [...prev, parsed.name]
+              );
+            }
+          } catch {
+            // ignore
+          }
+        });
+        channel.bind('pusher:subscription_error', (err: unknown) => {
+          console.warn('[useCollab] Pusher subscription error:', err);
+          if (!cancelled) {
+            setError('Could not connect to remote Pusher room');
+          }
+        });
+      } catch (err) {
+        console.warn('[useCollab] Pusher client error:', err);
+        setTimeout(() => {
+          if (!cancelled) {
+            setError('Failed to initialize Pusher client');
+          }
+        }, 0);
+      }
     }
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+
+      if (bc) {
+        bc.postMessage({ type: 'peer-leave', senderId: tabId, name: myPeer.name });
+        bc.close();
+        bcRef.current = null;
+      }
+
       if (channelRef.current && pusherRef.current) {
         pusherRef.current.unsubscribe(`presence-collab-${pasteId}`);
         channelRef.current = null;
@@ -231,7 +314,7 @@ export function useCollab({
         pusherRef.current = null;
       }
     };
-  }, [enabled, pasteId, rawKey, isAsymmetric, onRemoteContent, collaborators]);
+  }, [enabled, pasteId, rawKey, isAsymmetric, onRemoteContent]);
 
   // ── Broadcast encrypted text updates ──────────────────────────────────────────
   const broadcastContent = useCallback(
@@ -240,7 +323,6 @@ export function useCollab({
 
       if (!rawKey || isAsymmetric) return;
 
-      // Avoid echo loop if update was triggered by remote delta
       if (isBroadcastingRef.current) {
         isBroadcastingRef.current = false;
         return;
@@ -251,10 +333,7 @@ export function useCollab({
       }
 
       broadcastThrottleRef.current = setTimeout(async () => {
-        if (!channelRef.current && !isLocalMode) return;
-
         try {
-          // Encrypt entire state update locally with rawKey
           const enc = await encrypt(newContent, formatter, {
             burnAfterReading: false,
             openDiscussion: true,
@@ -265,24 +344,33 @@ export function useCollab({
             v: 2,
             ct: enc.ciphertext,
             adata: enc.adata,
-            senderId: myUserIdRef.current || 'local-me',
+            senderId: tabIdRef.current,
             timestamp: Date.now(),
           };
 
+          // 1. Send to local browser tabs via BroadcastChannel
+          if (bcRef.current) {
+            bcRef.current.postMessage({
+              type: 'client-delta',
+              ...message,
+            });
+          }
+
+          // 2. Send to remote peers via Pusher presence channel
           if (channelRef.current) {
             channelRef.current.trigger('client-delta', message);
           }
         } catch (encErr) {
           console.error('[useCollab] Failed to encrypt delta:', encErr);
         }
-      }, 150); // 150ms debounce for smooth typing stream
+      }, 80); // 80ms for ultra-responsive sync
     },
-    [rawKey, formatter, isAsymmetric, isLocalMode]
+    [rawKey, formatter, isAsymmetric]
   );
 
   // ── Broadcast typing ping ─────────────────────────────────────────────────────
   const broadcastTyping = useCallback(async () => {
-    if (!channelRef.current || !rawKey || isAsymmetric || !currentUser) return;
+    if (!rawKey || isAsymmetric || !currentUser) return;
 
     try {
       const payload = JSON.stringify({ name: currentUser.name, isTyping: true });
@@ -296,17 +384,30 @@ export function useCollab({
         v: 2,
         ct: enc.ciphertext,
         adata: enc.adata,
-        senderId: myUserIdRef.current,
+        senderId: tabIdRef.current,
       };
 
-      channelRef.current.trigger('client-typing', message);
+      if (bcRef.current) {
+        bcRef.current.postMessage({
+          type: 'client-typing',
+          ...message,
+        });
+      }
+
+      if (channelRef.current) {
+        channelRef.current.trigger('client-typing', message);
+      }
     } catch {
-      // ignore typing ping errors
+      // ignore
     }
   }, [rawKey, isAsymmetric, currentUser]);
 
   // ── Disconnect / Teardown ─────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
+    if (bcRef.current) {
+      bcRef.current.close();
+      bcRef.current = null;
+    }
     if (channelRef.current && pusherRef.current) {
       pusherRef.current.unsubscribe(`presence-collab-${pasteId}`);
       channelRef.current = null;
