@@ -117,7 +117,7 @@ export function RecipientKeyInput({
       : 'border-border focus-within:border-foreground/50';
 
   return (
-    <div className="flex flex-col gap-3 p-3.5 rounded bg-muted/30 border border-border font-mono">
+    <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-muted/40 border border-border font-mono">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider">
@@ -129,7 +129,7 @@ export function RecipientKeyInput({
           <button
             type="button"
             onClick={handleUseMyKey}
-            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono"
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono cursor-pointer"
             title="Fill with my own public key for self-testing"
           >
             <KeyRound className="h-3 w-3" />
@@ -139,21 +139,21 @@ export function RecipientKeyInput({
       </div>
 
       {/* Textarea container */}
-      <div className={`relative rounded border bg-background transition-colors ${borderClass}`}>
+      <div className={`relative rounded-lg border bg-background/80 transition-colors ${borderClass}`}>
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Paste recipient's base64 RSA public key (MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...)"
           rows={3}
           spellCheck={false}
-          className="w-full bg-transparent px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none selection:bg-foreground selection:text-background"
+          className="w-full bg-transparent px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none selection:bg-muted"
         />
 
         {value && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute top-2 right-2 text-muted-foreground hover:text-foreground transition-colors p-1"
+            className="absolute top-2 right-2 text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
             title="Clear key"
           >
             <X className="h-3.5 w-3.5" />
@@ -181,7 +181,7 @@ export function RecipientKeyInput({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-2 p-2.5 rounded bg-muted/60 border border-border text-foreground"
+            className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/80 border border-border text-foreground"
           >
             <ShieldCheck className="h-4 w-4 shrink-0 text-foreground" />
             <div className="flex flex-col gap-0.5">
@@ -202,7 +202,7 @@ export function RecipientKeyInput({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-2 p-2.5 rounded bg-destructive/10 border border-destructive/25 text-destructive text-xs"
+            className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/25 text-destructive text-xs"
           >
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{validationError}</span>
