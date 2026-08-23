@@ -1,0 +1,107 @@
+// prisma/schema.prisma
+// ─────────────────────────────────────────────────────────────────────────────
+// Full schema for the Obsidian app.
+// Member A owns this file. Run `npx prisma generate` after any change.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Paste ─────────────────────────────────────────────────────────────────────
+
+model Paste {
+  /// fnv1a64(ciphertext) — 16 lowercase hex chars
+  id               String    @id
+
+  /// AES-256-GCM ciphertext, base64-encoded
+  ciphertext       String    @db.Text
+
+  /// Full adata JSON array (v2 wire format)
+  adata            Json
+
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+
+  /// Server deletes atomically on first GET (SELECT FOR UPDATE → DELETE → RETURN)
+  burnAfterReading Boolean   @default(false)
+
+  openDiscussion   Boolean   @default(false)
+
+  /// Per-paste random salt used to derive the deleteToken
+  salt             String
+
+  /// Number of times this paste has been viewed
+  views            Int       @default(0)
+
+  /// N-view self-destruct: delete when views >= maxViews (Phase 4)
+  maxViews         Int?
+
+  /// Time capsule: server rejects GET requests before this timestamp (Phase 4)
+  timelockedUntil  DateTime?
+
+  // ── Shamir shard fields ───────────────────────────────────────────────────
+
+  /// True when this row stores a single Shamir SSS shard
+  shard            Boolean   @default(false)
+
+  /// 1-based shard index (null for non-shard pastes)
+  shardIndex       Int?
+
+  /// Total number of shards in the scheme
+  shardTotal       Int?
+
+  // ── Asymmetric mode ───────────────────────────────────────────────────────
+
+  /// True when adata[4] carries an RSA-OAEP wrapped AES key
+  recipientMode    Boolean   @default(false)
+
+  /// Ephemeral X25519 public key (reserved for future ECDH upgrade, nullable)
+  ephemeralPubKey  String?   @db.Text
+
+  // ── Relations ─────────────────────────────────────────────────────────────
+
+  comments         Comment[]
+  accessLog        AccessLog[]
+}
+
+// ── Comment ───────────────────────────────────────────────────────────────────
+
+model Comment {
+  id         String   @id @default(cuid())
+  pasteId    String
+  /// Empty string = top-level comment
+  parentId   String   @default("")
+  /// AES-256-GCM encrypted comment body (same cipher as paste)
+  ciphertext String   @db.Text
+  adata      Json
+  /// Optional emoji icon (≤ 8 chars)
+  icon       String?
+  createdAt  DateTime @default(now())
+
+  paste      Paste    @relation(fields: [pasteId], references: [id], onDelete: Cascade)
+}
+
+// ── AccessLog ─────────────────────────────────────────────────────────────────
+
+model AccessLog {
+  id         String   @id @default(cuid())
+  pasteId    String
+  /// HMAC-SHA256(raw_ip, server-side salt) — never stores raw IP
+  ipHash     String
+  accessedAt DateTime @default(now())
+
+  paste      Paste    @relation(fields: [pasteId], references: [id], onDelete: Cascade)
+}
+
+// ── ServerConfig ──────────────────────────────────────────────────────────────
+// KV store for server-side secrets (e.g. the HMAC salt for IP hashing).
+
+model ServerConfig {
+  key   String @id
+  value String
+}
