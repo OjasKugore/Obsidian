@@ -250,7 +250,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
   }
 
   // ── Burned / Expired / 404 State ───────────────────────────────────────────
-  if (isBurned || (error && !plaintext)) {
+  if (!plaintext && (isBurned || error)) {
     return (
       <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center min-h-[400px] p-6 text-center font-mono">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 mb-4">

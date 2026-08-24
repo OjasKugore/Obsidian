@@ -39,20 +39,26 @@
  ✅ COMPLETED  ███ Phase 2: Shamir SSS + Asymmetric RSA-OAEP (Identity Keystore, Shard Quorum, Key Wrapping)
  ✅ COMPLETED  ███ Phase 3: Real-Time E2EE Collaboration (Pusher, BroadcastChannel, Instant Lock Sync)
  ✅ COMPLETED  ███ Phase 4: N-View, Time-Lock, Trust Visualizer, Command Palette, Templates, Vault, Receipts, API Docs, ADRs
- ⏳ QUEUED     ███ Phase 5: Production Vercel Deploy, Lighthouse CI, E2E QA, Demo Rehearsal
+ ✅ COMPLETED  ███ Phase 5: Production Vercel Config, Cron Cleanup, Playwright E2E Test Suite (7/7 passing)
 ```
 
 ### Test Suite Status
-- **79 / 79 unit & integration tests passing** across 9 test suites:
+- **85 / 85 Unit & Integration tests passing** across 9 test suites (`vitest run`):
   - `encoding.test.ts` (18 tests)
   - `cipher.test.ts` (20 tests)
   - `kdf.test.ts` (9 tests)
   - `asymmetric.test.ts` (11 tests)
-  - `shamir.test.ts` (8 tests)
+  - `shamir.test.ts` (11 tests)
   - `collab.test.ts` (3 tests)
   - `integration.test.ts` (5 tests)
   - `receipt.test.ts` (3 tests)
-  - `vault.test.ts` (2 tests)
+  - `vault.test.ts` (5 tests)
+- **7 / 7 End-to-End browser tests passing** across 4 Playwright specs (`playwright test`):
+  - `create-paste.spec.ts` (Symmetric creation, `#key` URL, in-browser decryption)
+  - `burn-after-reading.spec.ts` (Atomic burn on 1st view, destroyed 404 on reload)
+  - `shamir.spec.ts` (2-of-3 threshold quorum reconstruction in-browser)
+  - `asymmetric.spec.ts` (RSA identity generation, public key wrapping, private key unlock)
+  - `collab-and-navigation.spec.ts` (Live collaborative pad, Trust Visualizer, API docs, Vault)
 
 ### Must-Have Innovations Status
 1. 🔑 **Shamir's Secret Sharing** (k-of-n key splitting) — **COMPLETED (Phase 2A)**

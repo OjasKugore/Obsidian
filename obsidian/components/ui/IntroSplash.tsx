@@ -24,20 +24,50 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
     'enter' | 'lock' | 'invert' | 'text' | 'exit' | 'done'
   >('enter');
 
+  const finishImmediately = React.useCallback(() => {
+    try {
+      sessionStorage.setItem('obsidian_intro_seen', '1');
+    } catch {
+      // ignore in private browsing
+    }
+    setStage('done');
+    document.body.style.overflow = '';
+    onComplete();
+  }, [onComplete]);
+
   React.useEffect(() => {
+    // Check if user has already seen splash in this session or prefers to skip
+    try {
+      if (
+        sessionStorage.getItem('obsidian_intro_seen') === '1' ||
+        (typeof window !== 'undefined' &&
+          (window as unknown as { __PLAYWRIGHT_TEST__?: boolean }).__PLAYWRIGHT_TEST__)
+      ) {
+        finishImmediately();
+        return;
+      }
+    } catch {
+      // Ignore
+    }
+
     // Lock scrolling on document body during intro
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const t1 = setTimeout(() => setStage('lock'), 700);
-    const t2 = setTimeout(() => setStage('invert'), 1300);
-    const t3 = setTimeout(() => setStage('text'), 1800);
-    const t4 = setTimeout(() => setStage('exit'), 2900);
+    const t1 = setTimeout(() => setStage('lock'), 600);
+    const t2 = setTimeout(() => setStage('invert'), 1100);
+    const t3 = setTimeout(() => setStage('text'), 1500);
+    const t4 = setTimeout(() => setStage('exit'), 2400);
     const t5 = setTimeout(() => {
+      try {
+        sessionStorage.setItem('obsidian_intro_seen', '1');
+      } catch {
+        // ignore
+      }
       setStage('done');
       document.body.style.overflow = originalOverflow;
       onComplete();
-    }, 3450);
+    }, 2850);
 
     return () => {
       document.body.style.overflow = originalOverflow;
@@ -47,7 +77,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
       clearTimeout(t4);
       clearTimeout(t5);
     };
-  }, [onComplete]);
+  }, [onComplete, finishImmediately]);
 
   if (stage === 'done') return null;
 
@@ -55,6 +85,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
   const isLocked = stage !== 'enter';
   const showText = stage === 'text' || stage === 'exit';
   const isExiting = stage === 'exit';
+
 
   return (
     <AnimatePresence mode="wait">
@@ -64,7 +95,8 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[9999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden bg-white"
+          onClick={finishImmediately}
+          className="fixed inset-0 z-[9999999] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center select-none overflow-hidden bg-white cursor-pointer"
           style={{
             backgroundColor: isInverted ? '#36454F' : '#ffffff',
             transition: 'background-color 0.6s cubic-bezier(0.16, 1, 0.3, 1)',

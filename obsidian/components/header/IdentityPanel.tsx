@@ -178,9 +178,10 @@ export function IdentityPanel() {
                     </div>
                   </div>
                   <button
+                    id="close-identity-modal-btn"
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>

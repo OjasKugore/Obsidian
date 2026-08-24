@@ -37,7 +37,8 @@ export interface DecryptionState {
 }
 
 export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
-  const fetchedRef = useRef(false);
+  const isFetchingRef = useRef(false);
+  const hasSucceededRef = useRef(false);
   const fetchedPasteDataRef = useRef<GetPasteResponse | null>(null);
   const shardMapRef = useRef<Map<number, string>>(new Map());
 
@@ -70,6 +71,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       try {
         const decrypted = await decrypt(data.ct, data.adata, key);
         const formatter = data.adata[1] || 'plaintext';
+        hasSucceededRef.current = true;
 
         setState((prev) => ({
           ...prev,
@@ -80,7 +82,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
           isLoading: false,
           isDecrypting: false,
           error: null,
-          isBurned: data.meta.burnAfterReading,
+          isBurned: false,
           isTimeLocked: false,
           timelockedUntil: null,
           isQuorumNeeded: false,
@@ -147,6 +149,8 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
   );
 
   const fetchAndDecrypt = useCallback(async () => {
+    if (isFetchingRef.current || hasSucceededRef.current) return;
+    isFetchingRef.current = true;
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -285,6 +289,8 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
         isDecrypting: false,
         error: message,
       }));
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [pasteId, decryptWithKey, attemptShamirReconstruction]);
 
@@ -411,8 +417,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
   );
 
   useEffect(() => {
-    if (autoFetch && pasteId && !fetchedRef.current) {
-      fetchedRef.current = true;
+    if (autoFetch && pasteId && !hasSucceededRef.current && !isFetchingRef.current) {
       fetchAndDecrypt();
     }
   }, [autoFetch, pasteId, fetchAndDecrypt]);
@@ -422,7 +427,8 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     addShard,
     decryptWithPrivateKey,
     refetch: () => {
-      fetchedRef.current = false;
+      hasSucceededRef.current = false;
+      isFetchingRef.current = false;
       shardMapRef.current.clear();
       return fetchAndDecrypt();
     },
