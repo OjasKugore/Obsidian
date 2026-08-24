@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { createBurnReceipt } from '@/lib/crypto/receipt';
 import type { GetPasteResponse } from '@/lib/api/schemas';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -85,10 +86,11 @@ export async function GET(
       const shouldDestruct =
         found.maxViews !== null && newViews >= found.maxViews;
 
-      // Burn-after-reading: delete and return the data in one shot
+      // Burn-after-reading or max views reached: delete and return the data in one shot
       if (found.burnAfterReading || shouldDestruct) {
         await tx.paste.delete({ where: { id } });
-        return { ...found, views: newViews };
+        const reason = found.burnAfterReading ? 'BURN_AFTER_READING' : 'MAX_VIEWS_REACHED';
+        return { ...found, views: newViews, __destroyed: true, __destroyReason: reason } as const;
       }
 
       // Normal paste: increment view count + log
@@ -117,6 +119,15 @@ export async function GET(
       );
     }
 
+    let burnReceipt = null;
+    if ('__destroyed' in paste && paste.__destroyed) {
+      burnReceipt = await createBurnReceipt(
+        id,
+        paste.__destroyReason as 'BURN_AFTER_READING' | 'MAX_VIEWS_REACHED',
+        paste.views
+      );
+    }
+
     const response: GetPasteResponse = {
       v: 2,
       ct: paste.ciphertext,
@@ -133,6 +144,7 @@ export async function GET(
         shardTotal: paste.shardTotal,
         recipientMode: paste.recipientMode,
         views: paste.views,
+        burnReceipt,
       },
     };
 
@@ -160,7 +172,7 @@ export async function DELETE(
   try {
     const paste = await prisma.paste.findUnique({
       where: { id },
-      select: { salt: true },
+      select: { salt: true, views: true },
     });
     if (!paste) {
       return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
@@ -173,7 +185,8 @@ export async function DELETE(
     }
 
     await prisma.paste.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const burnReceipt = await createBurnReceipt(id, 'MANUAL_DELETE', paste.views);
+    return NextResponse.json({ success: true, burnReceipt });
   } catch (err) {
     console.error('[DELETE /api/v1/paste/[id]]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

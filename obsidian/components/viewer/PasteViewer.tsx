@@ -4,6 +4,8 @@
  * components/viewer/PasteViewer.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Decrypted Paste Viewer Component.
+ * Immutable, zero-knowledge reader with Shamir quorum assembly,
+ * private key unlock, burn receipts, and encrypted discussions.
  * Strict monochrome styling matching Obsidian design standards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -23,20 +25,78 @@ import {
   PlusCircle,
   Eye,
   Layers,
-  Sparkles,
   KeyRound,
-  Edit3,
+  FileCheck,
+  Receipt,
+  ShieldAlert,
 } from 'lucide-react';
 import { usePasteDecryption } from '@/hooks/usePasteDecryption';
-import { useCollab } from '@/hooks/useCollab';
-import { encrypt } from '@/lib/crypto/cipher';
 import { ShardQuorumPanel } from '@/components/viewer/ShardQuorumPanel';
 import { PrivateKeyUnlock } from '@/components/viewer/PrivateKeyUnlock';
 import { CommentSection } from '@/components/viewer/CommentSection';
-import { CollabIndicator } from '@/components/collab/CollabIndicator';
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
+import { CodeViewer } from '@/components/ui/CodeViewer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+
+function TimeLockCountdown({
+  timelockedUntil,
+  onExpire,
+}: {
+  timelockedUntil: string | null;
+  onExpire: () => void;
+}) {
+  const [timeLeft, setTimeLeft] = React.useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  React.useEffect(() => {
+    if (!timelockedUntil) return;
+    const target = new Date(timelockedUntil).getTime();
+
+    const updateTimer = () => {
+      const diff = target - Date.now();
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        onExpire();
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+      setTimeLeft({ days, hours, minutes, seconds });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [timelockedUntil, onExpire]);
+
+  return (
+    <div className="grid grid-cols-4 gap-2 my-4 w-full max-w-xs">
+      <div className="flex flex-col items-center p-2.5 rounded-xl bg-background border border-border">
+        <span className="text-xl font-black text-foreground">{timeLeft.days}</span>
+        <span className="text-[10px] text-muted-foreground uppercase font-bold">Days</span>
+      </div>
+      <div className="flex flex-col items-center p-2.5 rounded-xl bg-background border border-border">
+        <span className="text-xl font-black text-foreground">{String(timeLeft.hours).padStart(2, '0')}</span>
+        <span className="text-[10px] text-muted-foreground uppercase font-bold">Hours</span>
+      </div>
+      <div className="flex flex-col items-center p-2.5 rounded-xl bg-background border border-border">
+        <span className="text-xl font-black text-foreground">{String(timeLeft.minutes).padStart(2, '0')}</span>
+        <span className="text-[10px] text-muted-foreground uppercase font-bold">Mins</span>
+      </div>
+      <div className="flex flex-col items-center p-2.5 rounded-xl bg-background border border-border">
+        <span className="text-xl font-black text-foreground">{String(timeLeft.seconds).padStart(2, '0')}</span>
+        <span className="text-[10px] text-muted-foreground uppercase font-bold">Secs</span>
+      </div>
+    </div>
+  );
+}
 
 interface PasteViewerProps {
   pasteId: string;
@@ -63,83 +123,41 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     isAsymmetric,
     isAwaitingPrivateKey,
     decryptWithPrivateKey,
+    refetch,
   } = usePasteDecryption(pasteId, true);
 
   const [copied, setCopied] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'formatted' | 'raw'>('formatted');
-  const [isCollabEditing, setIsCollabEditing] = React.useState(false);
-  const [isLocked, setIsLocked] = React.useState(false);
-  const [isFinalizing, setIsFinalizing] = React.useState(false);
-  const [finalizedNotice, setFinalizedNotice] = React.useState(false);
+  const [showReceiptModal, setShowReceiptModal] = React.useState(false);
+  const [receiptVerificationState, setReceiptVerificationState] = React.useState<{
+    loading: boolean;
+    verified?: boolean;
+    proofOfAbsence?: boolean;
+    message?: string;
+  } | null>(null);
 
-  const canCollab = Boolean(plaintext && rawKey && !isAsymmetric && !isBurned);
-
-  const handleRemoteLock = React.useCallback(() => {
-    setIsLocked(true);
-    setIsCollabEditing(false);
-  }, []);
-
-  const {
-    isConnected: isCollabConnected,
-    isConnecting: isCollabConnecting,
-    isLocalMode,
-    collaborators,
-    currentUser,
-    typingUsers,
-    content: liveText,
-    broadcastContent,
-    broadcastLock,
-    broadcastTyping,
-    disconnect: disconnectCollab,
-  } = useCollab({
-    pasteId,
-    rawKey,
-    initialContent: plaintext || '',
-    formatter,
-    isAsymmetric,
-    enabled: canCollab && !isLocked,
-    onRemoteLock: handleRemoteLock,
-  });
-
-  const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');
-
-  const handleLockAndFinalize = async () => {
-    if (!rawKey || isFinalizing) return;
+  const handleVerifyReceipt = async () => {
+    if (!meta?.burnReceipt) return;
+    setReceiptVerificationState({ loading: true });
     try {
-      setIsFinalizing(true);
-      // 1. Broadcast lock event immediately to all other connected tabs/peers
-      broadcastLock(displayText);
-
-      // 2. Re-encrypt current collaborative displayText locally with the rawKey
-      const enc = await encrypt(displayText, formatter, {
-        burnAfterReading: false,
-        openDiscussion: meta?.openDiscussion ?? true,
-        customKey: rawKey,
-      });
-
-      // 3. Persist updated ciphertext to DB
-      const res = await fetch(`/api/v1/paste/${pasteId}`, {
-        method: 'PUT',
+      const res = await fetch(`/api/v1/receipt/${pasteId}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          v: 2,
-          ct: enc.ciphertext,
-          adata: enc.adata,
-        }),
+        body: JSON.stringify({ receipt: meta.burnReceipt }),
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to persist finalized paste');
-      }
-
-      setIsLocked(true);
-      setIsCollabEditing(false);
-      setFinalizedNotice(true);
-      disconnectCollab();
+      const data = await res.json();
+      setReceiptVerificationState({
+        loading: false,
+        verified: data.verified,
+        proofOfAbsence: data.proofOfAbsence,
+        message: data.message,
+      });
     } catch (err) {
-      console.error('[handleLockAndFinalize]', err);
-    } finally {
-      setIsFinalizing(false);
+      setReceiptVerificationState({
+        loading: false,
+        verified: false,
+        message: 'Verification request failed.',
+      });
     }
   };
 
@@ -165,17 +183,19 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         >
           <Lock className="h-8 w-8 text-foreground" />
         </motion.div>
-        <h2 className="text-lg font-bold text-foreground mb-2 uppercase tracking-wide">
-          {isDecrypting ? 'Decrypting Secret...' : 'Retrieving Ciphertext...'}
-        </h2>
-        <p className="text-xs text-muted-foreground max-w-md text-center">
-          Running PBKDF2-SHA256 &amp; AES-256-GCM in your browser using SubtleCrypto.
+        <div className="flex items-center gap-2">
+          <span className="text-base font-bold text-foreground">
+            {isLoading ? 'Fetching Encrypted Ciphertext...' : 'Decrypting in Client Memory...'}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2 max-w-md text-center leading-relaxed">
+          Retrieving blind payload and decrypting locally with WebCrypto AES-256-GCM.
         </p>
       </div>
     );
   }
 
-  // ── Shamir Quorum Panel (When more shards are required) ─────────────────────
+  // ── Multi-Party Shamir Quorum Required ──────────────────────────────────────
   if (!plaintext && isQuorumNeeded) {
     return (
       <ShardQuorumPanel
@@ -189,181 +209,118 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── Asymmetric RSA-OAEP: awaiting private key ────────────────────────────────
-  if (isAsymmetric && isAwaitingPrivateKey) {
+  // ── Asymmetric RSA-OAEP Private Key Required ────────────────────────────────
+  if (!plaintext && isAwaitingPrivateKey) {
     return (
       <PrivateKeyUnlock
         onUnlock={decryptWithPrivateKey}
-        decryptError={error}
         isDecrypting={isDecrypting}
+        decryptError={error}
       />
     );
   }
 
-  // ── 404 / Burned After Reading State ────────────────────────────────────────
-  if (!plaintext && (isBurned || (error && error.includes('burned')))) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-lg border border-border bg-card flex flex-col items-center text-center shadow-xl font-mono"
-      >
-        <div className="flex h-14 w-14 items-center justify-center rounded bg-muted border border-border text-foreground mb-5">
-          <Flame className="h-7 w-7 text-foreground" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground mb-2 uppercase tracking-wide">
-          This Paste Has Been Burned
-        </h2>
-        <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
-          This secret was configured to <strong>burn after reading</strong>. It has been permanently wiped from the server database upon its initial view.
-        </p>
-        <div className="flex items-center gap-3">
-          <Link href="/">
-            <Button className="gap-2 font-mono text-xs font-bold bg-foreground text-background hover:opacity-90">
-              <PlusCircle className="h-4 w-4" />
-              Create a New Paste
-            </Button>
-          </Link>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // ── Time-Locked State ───────────────────────────────────────────────────────
+  // ── Time-Locked Paste ───────────────────────────────────────────────────────
   if (isTimeLocked) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-lg border border-border bg-card flex flex-col items-center text-center shadow-xl font-mono"
-      >
-        <div className="flex h-14 w-14 items-center justify-center rounded bg-muted border border-border text-foreground mb-5">
-          <Clock className="h-7 w-7 text-foreground" />
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center min-h-[400px] p-6 text-center font-mono">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-4">
+          <Clock className="h-7 w-7" />
         </div>
-        <h2 className="text-xl font-bold text-foreground mb-2 uppercase tracking-wide">
-          Paste is Time-Locked
-        </h2>
-        <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
-          The author set a cryptographic time-lock on this paste. It cannot be decrypted until{' '}
-          <strong className="text-foreground font-mono">
-            {timelockedUntil ? new Date(timelockedUntil).toLocaleString() : 'the scheduled time'}
-          </strong>.
+        <h2 className="text-lg font-bold text-foreground">Time-Locked Secret</h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
+          This paste has been sealed with a cryptographic time-lock policy and cannot be accessed before the unlock timestamp.
         </p>
-        <Link href="/">
-          <Button variant="outline" className="font-mono text-xs">Back to Home</Button>
-        </Link>
-      </motion.div>
+
+        <TimeLockCountdown
+          timelockedUntil={timelockedUntil}
+          onExpire={() => refetch()}
+        />
+
+        <div className="p-3 rounded-lg bg-muted/40 border border-border text-[11px] text-muted-foreground text-left max-w-sm w-full">
+          <div className="flex justify-between">
+            <span>Unlock Timestamp:</span>
+            <span className="text-foreground font-bold font-mono">
+              {timelockedUntil ? new Date(timelockedUntil).toLocaleString() : 'N/A'}
+            </span>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  // ── Error State ─────────────────────────────────────────────────────────────
-  if (error) {
+  // ── Burned / Expired / 404 State ───────────────────────────────────────────
+  if (isBurned || (error && !plaintext)) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-lg border border-destructive/30 bg-card flex flex-col items-center text-center shadow-xl font-mono"
-      >
-        <div className="flex h-14 w-14 items-center justify-center rounded bg-destructive/10 border border-destructive/25 text-destructive mb-5">
-          <AlertTriangle className="h-7 w-7 text-destructive" />
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center justify-center min-h-[400px] p-6 text-center font-mono">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 mb-4">
+          <Flame className="h-7 w-7" />
         </div>
-        <h2 className="text-xl font-bold text-destructive mb-2 uppercase tracking-wide">
-          Decryption Failed
-        </h2>
-        <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
-          {error}
+        <h2 className="text-lg font-bold text-foreground">Secret Destroyed or Unavailable</h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
+          {error || 'This paste does not exist, reached its maximum view limit, or was burned immediately after reading.'}
         </p>
-        <Link href="/">
-          <Button variant="outline" className="font-mono text-xs">Create a New Paste</Button>
+
+        <Link
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background text-xs font-bold font-mono hover:opacity-90 transition-opacity"
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span>Create New Encrypted Paste</span>
         </Link>
-      </motion.div>
+      </div>
     );
   }
 
-  // ── Success / Decrypted State ───────────────────────────────────────────────
+  const viewsRemaining = meta?.maxViews ? meta.maxViews - (meta.views || 0) : null;
+  const isBurnOnRead = meta?.burnAfterReading === true;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="w-full max-w-4xl mx-auto flex flex-col gap-4 font-mono"
+      initial={{ opacity: 0, scale: 0.98, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="w-full max-w-4xl mx-auto flex flex-col gap-6 font-mono"
     >
-      {/* Asymmetric RSA-OAEP success banner if applicable */}
-      {isAsymmetric && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs">
+      {/* Burn-After-Reading Alert Banner */}
+      {isBurnOnRead && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 shrink-0 text-indigo-400" />
+            <Flame className="h-4 w-4 shrink-0 text-rose-400" />
             <span>
-              <strong>RSA-OAEP Unlocked:</strong> AES-256 key unwrapped with your RSA private key in-browser.
+              <strong>Burned After Reading:</strong> This secret has been permanently purged from server memory. It cannot be reloaded.
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] border-indigo-500/30 text-indigo-300">
-            Asymmetric
+          <Badge variant="outline" className="shrink-0 text-[10px] border-rose-500/40 text-rose-400">
+            Destroyed
           </Badge>
         </div>
       )}
 
-      {/* Shamir Quorum Banner if applicable */}
-      {isShamir && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs">
+      {/* Multi-View Remaining Counter Banner */}
+      {!isBurnOnRead && meta?.maxViews && viewsRemaining !== null ? (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs">
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 shrink-0 text-cyan-400" />
+            <Eye className="h-4 w-4 shrink-0 text-purple-400" />
             <span>
-              <strong>Quorum Satisfied ({threshold}-of-{totalShards} SSS):</strong> All required shards collected and verified. Key reconstructed in-memory.
+              <strong>Limited View Policy:</strong>{' '}
+              {viewsRemaining <= 0 ? (
+                <span>This was the final view. The paste is now scheduled for permanent destruction.</span>
+              ) : (
+                <span>
+                  {viewsRemaining} {viewsRemaining === 1 ? 'view' : 'views'} remaining before permanent deletion.
+                </span>
+              )}
             </span>
           </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] border-cyan-500/30 text-cyan-300">
-            Reconstructed
+          <Badge variant="outline" className="shrink-0 text-[10px] border-purple-500/30 text-purple-300">
+            {meta.views}/{meta.maxViews} Views
           </Badge>
         </div>
-      )}
-
-      {/* Burn Notice Banner (One-time view) */}
-      {meta?.burnAfterReading && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs">
-          <div className="flex items-center gap-2">
-            <Flame className="h-4 w-4 shrink-0 text-amber-400 animate-pulse" />
-            <span>
-              <strong>1-Time View:</strong> This paste was permanently destroyed from the server database upon opening.
-            </span>
-          </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] border-amber-500/30 text-amber-300">
-            Burned
-          </Badge>
-        </div>
-      )}
-
-      {/* Real-Time E2EE Collaboration Bar */}
-      {canCollab && (
-        <CollabIndicator
-          isConnected={isCollabConnected}
-          isConnecting={isCollabConnecting}
-          isLocalMode={isLocalMode}
-          collaborators={collaborators}
-          currentUser={currentUser}
-          typingUsers={typingUsers}
-          isLocked={isLocked}
-          onLockPaste={handleLockAndFinalize}
-        />
-      )}
-
-      {/* Finalized Sealed Notice */}
-      {finalizedNotice && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span>
-              <strong>Sealed:</strong> Edits re-encrypted and permanently saved. Live session locked.
-            </span>
-          </div>
-          <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-500/30 text-emerald-300">
-            Finalized
-          </Badge>
-        </div>
-      )}
+      ) : null}
 
       {/* Main Content Card */}
-      <div className="rounded-xl border border-border/80 bg-card/95 p-5 sm:p-7 flex flex-col gap-4 shadow-xl soft-shadow relative overflow-hidden">
+      <div className="rounded-xl border border-border bg-card p-5 sm:p-7 flex flex-col gap-4 shadow-xl relative overflow-hidden">
         {/* Viewer Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
           <div className="flex items-center gap-2">
@@ -372,7 +329,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               <span>Decrypted: {formatter}</span>
             </div>
 
-            {formatter === 'markdown' && !isCollabEditing && (
+            {formatter === 'markdown' && (
               <div className="flex items-center rounded bg-background p-0.5 border border-border text-xs">
                 <button
                   type="button"
@@ -383,7 +340,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <Sparkles className="h-3 w-3 text-foreground" />
+                  <Eye className="h-3 w-3 text-foreground" />
                   Rendered
                 </button>
                 <button
@@ -400,24 +357,12 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
                 </button>
               </div>
             )}
-
-            {canCollab && !isLocked && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCollabEditing((prev) => !prev)}
-                className="h-7 text-xs gap-1.5 font-mono border-border bg-background hover:bg-muted"
-              >
-                <Edit3 className="h-3.5 w-3.5 text-foreground" />
-                <span>{isCollabEditing ? 'Reading View' : 'Live Collab Edit'}</span>
-              </Button>
-            )}
           </div>
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {displayText.split('\n').length} {displayText.split('\n').length === 1 ? 'line' : 'lines'} • {displayText.length.toLocaleString()} chars
+              {plaintext ? plaintext.split('\n').length : 0} lines • {plaintext ? plaintext.length.toLocaleString() : 0} chars
             </span>
             <Button
               variant="outline"
@@ -440,32 +385,17 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </div>
         </div>
 
-        {/* Content Display: Collaborative Edit vs Rendered vs Raw */}
-        {isCollabEditing ? (
-          <div className="flex flex-col gap-2">
-            <textarea
-              value={displayText}
-              onChange={(e) => {
-                broadcastContent(e.target.value);
-                broadcastTyping();
-              }}
-              onKeyDown={() => broadcastTyping()}
-              placeholder="Type to collaborate in real-time..."
-              className="w-full min-h-[240px] rounded bg-background border border-border p-4 font-mono text-xs sm:text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/50 resize-y"
-            />
-            <p className="text-[11px] text-muted-foreground flex items-center justify-between">
-              <span>Edits are encrypted and broadcast to all connected peers in real-time.</span>
-              <span className="font-mono text-[10px] text-foreground">Live Sync Ready</span>
-            </p>
+        {/* Content Display: Rendered vs Raw */}
+        {formatter === 'markdown' && viewMode === 'formatted' ? (
+          <div className="relative rounded bg-background border border-border p-5 sm:p-6 overflow-x-auto min-h-[140px] text-foreground leading-relaxed">
+            <MarkdownPreview content={plaintext || ''} />
           </div>
-        ) : formatter === 'markdown' && viewMode === 'formatted' ? (
-          <div className="relative rounded bg-background/50 border border-border p-5 sm:p-6 overflow-x-auto min-h-[140px] text-foreground">
-            <MarkdownPreview content={displayText} />
-          </div>
+        ) : formatter === 'syntaxhighlighting' && viewMode === 'formatted' ? (
+          <CodeViewer code={plaintext || ''} />
         ) : (
-          <div className="relative rounded bg-background/50 border border-border p-4 sm:p-5 overflow-x-auto min-h-[140px]">
+          <div className="relative rounded bg-background border border-border p-4 sm:p-5 overflow-x-auto min-h-[140px]">
             <pre className="font-mono text-xs sm:text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
-              {displayText}
+              {plaintext || ''}
             </pre>
           </div>
         )}
@@ -483,6 +413,16 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
                 View #{meta.views}
               </span>
             )}
+            {meta?.burnReceipt && (
+              <button
+                type="button"
+                onClick={() => setShowReceiptModal(true)}
+                className="text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+              >
+                <Receipt className="h-3.5 w-3.5" />
+                <span>View Burn Receipt</span>
+              </button>
+            )}
           </div>
           <Link href="/" className="text-foreground hover:underline flex items-center gap-1">
             <PlusCircle className="h-3.5 w-3.5" />
@@ -490,6 +430,88 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </Link>
         </div>
       </div>
+
+      {/* Burn Receipt Verification Modal */}
+      {showReceiptModal && meta?.burnReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl flex flex-col gap-4 font-mono text-xs"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-amber-400" />
+                <span className="font-bold text-foreground">Cryptographic Proof of Destruction</span>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setShowReceiptModal(false)} className="h-7 text-xs">
+                Close
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-2 p-3 rounded-xl bg-background border border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Receipt ID:</span>
+                <span className="text-foreground font-mono font-bold">{meta.burnReceipt.receiptId}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Destroyed At:</span>
+                <span className="text-foreground font-mono">{new Date(meta.burnReceipt.destroyedAt).toUTCString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Reason:</span>
+                <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-300">
+                  {meta.burnReceipt.reason}
+                </Badge>
+              </div>
+              <div className="flex flex-col gap-1 mt-1">
+                <span className="text-muted-foreground text-[10px]">HMAC-SHA256 Server Signature:</span>
+                <code className="text-[10px] text-foreground p-1.5 rounded bg-muted/60 break-all">
+                  {meta.burnReceipt.signature}
+                </code>
+              </div>
+            </div>
+
+            {receiptVerificationState && (
+              <div
+                className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                  receiptVerificationState.verified
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-destructive/10 border-destructive/30 text-destructive'
+                }`}
+              >
+                {receiptVerificationState.loading ? (
+                  <span>Verifying cryptographic signature on server...</span>
+                ) : (
+                  <span>{receiptVerificationState.message}</span>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleVerifyReceipt}
+                className="font-mono text-xs"
+              >
+                Verify Signature &amp; Absence
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(meta.burnReceipt, null, 2));
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="font-mono text-xs bg-foreground text-background"
+              >
+                Copy Receipt JSON
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* End-to-End Encrypted Comment Thread */}
       {meta?.openDiscussion && rawKey && (

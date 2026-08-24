@@ -28,6 +28,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { MarkdownPreview } from '@/components/ui/markdown-preview';
 import { RecipientKeyInput } from '@/components/editor/RecipientKeyInput';
+import { PasteTemplates, TemplateItem } from '@/components/editor/PasteTemplates';
+import { loadIdentityKey } from '@/lib/crypto/keystore';
 import type { EncryptionOptions, EncryptionResult } from '@/hooks/usePasteEncryption';
 import type { Expiry } from '@/lib/api/schemas';
 
@@ -57,10 +59,16 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
   // Shamir Quorum Configuration (N-of-K)
   const [threshold, setThreshold] = React.useState<number>(2);
   const [totalShares, setTotalShares] = React.useState<number>(3);
+  const [enableRSAShardWrapping, setEnableRSAShardWrapping] = React.useState(false);
+  const [shardRecipientKeys, setShardRecipientKeys] = React.useState<string[]>(['', '', '']);
 
   // Security options
   const [expire, setExpire] = React.useState<Expiry>('1day');
-  const [burnAfterReading, setBurnAfterReading] = React.useState(false);
+  const [viewLimitMode, setViewLimitMode] = React.useState<'unlimited' | 'burn' | '2' | '3' | '5' | '10' | 'custom'>('burn');
+  const [customMaxViews, setCustomMaxViews] = React.useState<number>(3);
+  const [enableTimeLock, setEnableTimeLock] = React.useState(false);
+  const [timeLockPreset, setTimeLockPreset] = React.useState<'5min' | '1hour' | '1day' | '1week' | 'custom'>('1hour');
+  const [customTimeLockDate, setCustomTimeLockDate] = React.useState('');
   const [openDiscussion, setOpenDiscussion] = React.useState(false);
 
   // UI helpers
@@ -81,6 +89,11 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────
+
+  const handleSelectTemplate = (template: TemplateItem) => {
+    setContent(template.content);
+    setFormatter(template.formatter);
+  };
 
   const handleFormatterChange = (next: Formatter) => {
     setFormatter(next);
@@ -116,19 +129,47 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     setEditorTab('write');
   };
 
+  const computeTimeLockIso = (): string | undefined => {
+    if (!enableTimeLock) return undefined;
+    const now = Date.now();
+    if (timeLockPreset === '5min') return new Date(now + 5 * 60 * 1000).toISOString();
+    if (timeLockPreset === '1hour') return new Date(now + 60 * 60 * 1000).toISOString();
+    if (timeLockPreset === '1day') return new Date(now + 24 * 60 * 60 * 1000).toISOString();
+    if (timeLockPreset === '1week') return new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
+    if (timeLockPreset === 'custom' && customTimeLockDate) {
+      return new Date(customTimeLockDate).toISOString();
+    }
+    return undefined;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isLoading) return;
 
+    let computedMaxViews: number | undefined;
+    let computedBurn = false;
+
+    if (!isShamir) {
+      if (viewLimitMode === 'burn') {
+        computedBurn = true;
+        computedMaxViews = 1;
+      } else if (viewLimitMode !== 'unlimited') {
+        computedMaxViews = viewLimitMode === 'custom' ? customMaxViews : parseInt(viewLimitMode, 10);
+      }
+    }
+
     await onEncrypt(content, {
       formatter,
       expire,
-      burnAfterReading: isShamir ? false : burnAfterReading,
-      openDiscussion,
+      burnAfterReading: computedBurn,
+      maxViews: computedMaxViews,
+      timelockedUntil: computeTimeLockIso(),
+      openDiscussion: computedBurn ? false : openDiscussion,
       isShamir,
       threshold: isShamir ? threshold : undefined,
       totalShares: isShamir ? totalShares : undefined,
       recipientPublicKey: isAsymmetric ? validRecipientKey || undefined : undefined,
+      recipientPublicKeys: isShamir && enableRSAShardWrapping ? shardRecipientKeys.map((k) => k.trim() || null) : undefined,
       isAsymmetric,
     });
   };
@@ -192,8 +233,10 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </span>
             </div>
 
-            {/* Format Selector + Tools */}
-            <div className="flex items-center gap-3">
+            {/* Format Selector + Templates + Tools */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <PasteTemplates onSelectTemplate={handleSelectTemplate} />
+
               <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded border border-border">
                 <button
                   type="button"
@@ -471,6 +514,69 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                     </p>
                   </div>
 
+                  {/* RSA Public Key Shard Wrapping Toggle */}
+                  <div className="p-3 rounded-lg border border-border bg-background/60 flex flex-col gap-2.5">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={enableRSAShardWrapping}
+                        onChange={(e) => setEnableRSAShardWrapping(e.target.checked)}
+                        className="h-4 w-4 rounded bg-background border-border text-foreground accent-foreground focus:ring-0 cursor-pointer"
+                      />
+                      <span className="text-xs font-mono text-foreground font-semibold flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-foreground" />
+                        <span>RSA Public Key Shard Wrapping</span>
+                      </span>
+                    </label>
+                    <p className="text-[10px] font-mono text-muted-foreground leading-relaxed pl-6">
+                      Encrypts each shard for its recipient&apos;s RSA key, preventing the creator from holding all shards.
+                    </p>
+
+                    {enableRSAShardWrapping && (
+                      <div className="flex flex-col gap-2.5 pt-2 border-t border-border/60">
+                        {Array.from({ length: totalShares }).map((_, idx) => (
+                          <div key={idx} className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                              <span className="font-bold text-foreground">Custodian #{idx + 1} Public Key:</span>
+                              {idx === 0 && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const idKey = await loadIdentityKey();
+                                    if (idKey?.publicKeyBase64) {
+                                      setShardRecipientKeys((prev) => {
+                                        const copy = [...prev];
+                                        copy[0] = idKey.publicKeyBase64;
+                                        return copy;
+                                      });
+                                    }
+                                  }}
+                                  className="text-foreground hover:underline text-[9px] cursor-pointer"
+                                >
+                                  Use My Key
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              placeholder={`Paste Custodian #${idx + 1} RSA-2048 Public Key...`}
+                              value={shardRecipientKeys[idx] || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setShardRecipientKeys((prev) => {
+                                  const copy = [...prev];
+                                  copy[idx] = val;
+                                  return copy;
+                                });
+                              }}
+                              className="w-full h-7 px-2 rounded bg-background border border-border text-[10px] font-mono text-foreground focus:outline-none focus:border-foreground/50"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="p-2.5 rounded-lg bg-muted/40 border border-border text-[11px] font-mono text-muted-foreground flex items-start gap-2">
                     <Info className="h-3.5 w-3.5 text-foreground shrink-0 mt-0.5" />
                     <span>Any {threshold} of {totalShares} shares combined decrypt the paste.</span>
@@ -503,33 +609,117 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                 </select>
               </div>
 
-              {/* Burn After Reading Toggle */}
+              {/* N-View Self-Destruct Control */}
               {!isShamir && (
-                <label className="flex items-center gap-2 cursor-pointer select-none py-1">
-                  <input
-                    type="checkbox"
-                    checked={burnAfterReading}
-                    onChange={(e) => setBurnAfterReading(e.target.checked)}
-                    className="h-4 w-4 rounded bg-background border-border text-foreground accent-foreground focus:ring-0 cursor-pointer"
-                  />
-                  <span className="text-xs font-mono text-foreground">
-                    Burn after reading (1 view)
-                  </span>
-                </label>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                    Destruction Trigger (N-Views)
+                  </label>
+                  <select
+                    value={viewLimitMode}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setViewLimitMode(val as any);
+                      if (val === 'burn') {
+                        setOpenDiscussion(false);
+                      }
+                    }}
+                    className="w-full h-9 rounded-lg bg-background/80 border border-border px-3 text-xs font-mono text-foreground focus:outline-none focus:border-foreground/50 cursor-pointer shadow-sm"
+                  >
+                    <option value="burn">1 View (Burn After Reading)</option>
+                    <option value="2">2 Views (Atomic Self-Destruct)</option>
+                    <option value="3">3 Views (Atomic Self-Destruct)</option>
+                    <option value="5">5 Views</option>
+                    <option value="10">10 Views</option>
+                    <option value="custom">Custom View Count</option>
+                    <option value="unlimited">Unlimited Views (Until Expiry)</option>
+                  </select>
+
+                  {viewLimitMode === 'custom' && (
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={customMaxViews}
+                      onChange={(e) => setCustomMaxViews(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      placeholder="Max views before destroy"
+                      className="w-full h-8 px-2.5 rounded border border-border bg-background text-xs font-mono text-foreground focus:outline-none"
+                    />
+                  )}
+                </div>
               )}
 
-              {/* Open Discussion Toggle */}
-              <label className="flex items-center gap-2 cursor-pointer select-none py-1">
-                <input
-                  type="checkbox"
-                  checked={openDiscussion}
-                  onChange={(e) => setOpenDiscussion(e.target.checked)}
-                  className="h-4 w-4 rounded bg-background border-border text-foreground accent-foreground focus:ring-0 cursor-pointer"
-                />
-                <span className="text-xs font-mono text-foreground">
-                  Open discussion
-                </span>
-              </label>
+              {/* Time-Lock Note ("Time Capsule") Control */}
+              <div className="flex flex-col gap-1.5 p-2.5 rounded-lg border border-border/80 bg-background/40">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={enableTimeLock}
+                    onChange={(e) => setEnableTimeLock(e.target.checked)}
+                    className="h-4 w-4 rounded bg-background border-border text-foreground accent-foreground focus:ring-0 cursor-pointer"
+                  />
+                  <span className="text-xs font-mono text-foreground font-semibold">
+                    Time-Lock Note (Time Capsule)
+                  </span>
+                </label>
+
+                {enableTimeLock && (
+                  <div className="flex flex-col gap-2 mt-1 pl-6">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Server rejects decryption requests until the scheduled unlock timestamp.
+                    </p>
+                    <select
+                      value={timeLockPreset}
+                      onChange={(e) => setTimeLockPreset(e.target.value as any)}
+                      className="w-full h-8 rounded bg-background border border-border px-2 text-xs font-mono text-foreground focus:outline-none"
+                    >
+                      <option value="5min">Unlock in 5 Minutes</option>
+                      <option value="1hour">Unlock in 1 Hour</option>
+                      <option value="1day">Unlock in 24 Hours</option>
+                      <option value="1week">Unlock in 1 Week</option>
+                      <option value="custom">Custom Date &amp; Time</option>
+                    </select>
+
+                    {timeLockPreset === 'custom' && (
+                      <input
+                        type="datetime-local"
+                        value={customTimeLockDate}
+                        onChange={(e) => setCustomTimeLockDate(e.target.value)}
+                        className="w-full h-8 px-2 rounded bg-background border border-border text-xs font-mono text-foreground focus:outline-none"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Open Discussion Toggle (Mutually exclusive with Burn After Reading) */}
+              <div className="flex flex-col gap-1 py-1">
+                <label
+                  className={`flex items-center gap-2 select-none ${
+                    viewLimitMode === 'burn'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'cursor-pointer'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={openDiscussion && viewLimitMode !== 'burn'}
+                    disabled={viewLimitMode === 'burn'}
+                    onChange={(e) => {
+                      setOpenDiscussion(e.target.checked);
+                    }}
+                    className="h-4 w-4 rounded bg-background border-border text-foreground accent-foreground focus:ring-0 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <span className="text-xs font-mono text-foreground">
+                    Open discussion (E2EE comments)
+                  </span>
+                </label>
+                {viewLimitMode === 'burn' && (
+                  <p className="text-[10px] text-muted-foreground pl-6">
+                    Comments disabled: 1-time view destroys paste on first read.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Error Display */}

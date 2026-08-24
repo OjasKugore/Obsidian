@@ -38,12 +38,12 @@
  ✅ COMPLETED  ███ Phase 1: Modernization + Infrastructure Setup (Next.js, Prisma, Web Crypto, Upstash)
  ✅ COMPLETED  ███ Phase 2: Shamir SSS + Asymmetric RSA-OAEP (Identity Keystore, Shard Quorum, Key Wrapping)
  ✅ COMPLETED  ███ Phase 3: Real-Time E2EE Collaboration (Pusher, BroadcastChannel, Instant Lock Sync)
- ⏳ TOMORROW   ███ Phase 4: N-View, Time-Lock, Trust Visualizer, Command Palette, Templates, UI Polish
- ⏳ TOMORROW   ███ Phase 5: Production Vercel Deploy, Lighthouse CI, E2E QA, Demo Rehearsal
+ ✅ COMPLETED  ███ Phase 4: N-View, Time-Lock, Trust Visualizer, Command Palette, Templates, Vault, Receipts, API Docs, ADRs
+ ⏳ QUEUED     ███ Phase 5: Production Vercel Deploy, Lighthouse CI, E2E QA, Demo Rehearsal
 ```
 
 ### Test Suite Status
-- **74 / 74 unit & integration tests passing** across 7 test suites:
+- **79 / 79 unit & integration tests passing** across 9 test suites:
   - `encoding.test.ts` (18 tests)
   - `cipher.test.ts` (20 tests)
   - `kdf.test.ts` (9 tests)
@@ -51,21 +51,22 @@
   - `shamir.test.ts` (8 tests)
   - `collab.test.ts` (3 tests)
   - `integration.test.ts` (5 tests)
+  - `receipt.test.ts` (3 tests)
+  - `vault.test.ts` (2 tests)
 
 ### Must-Have Innovations Status
 1. 🔑 **Shamir's Secret Sharing** (k-of-n key splitting) — **COMPLETED (Phase 2A)**
 2. 🔐 **Asymmetric Public-Key Mode** (RSA-OAEP Key Wrapping) — **COMPLETED (Phase 2B)**
 3. 🔴 **Real-Time E2EE Collaboration** (Pusher + BroadcastChannel sync) — **COMPLETED (Phase 3)**
-4. 💥 **N-View Self-Destruct** — **Queued for Tomorrow (Phase 4)**
-5. ⏳ **Time-Locked Notes ("Time Capsule")** — **Queued for Tomorrow (Phase 4)**
-
-### Deferred / Nice-to-Have (Phase 4 if time allows)
-- Paste Vault (encrypted collection)
-- Cryptographic Receipt System (JWT)
-- Trust Visualizer animation (with Symmetric + Recipient tabs)
-- Paste Templates
-- Command Palette
-- Full OpenAPI / Swagger UI
+4. 💥 **N-View Self-Destruct** — **COMPLETED (Phase 4)**
+5. ⏳ **Time-Locked Notes ("Time Capsule")** — **COMPLETED (Phase 4)**
+6. 👁️ **Zero-Knowledge Trust Visualizer** — **COMPLETED (Phase 4)**
+7. ⌨️ **Command Palette (Cmd+K) & Shortcuts** — **COMPLETED (Phase 4)**
+8. 📋 **Paste Starter Templates** — **COMPLETED (Phase 4)**
+9. 🗄️ **Encrypted Paste Vault Collection** — **COMPLETED (Phase 4)**
+10. 🧾 **Cryptographic Proof of Destruction Receipts** — **COMPLETED (Phase 4)**
+11. 📖 **Interactive OpenAPI Reference (`/api/docs`)** — **COMPLETED (Phase 4)**
+12. 📚 **Architectural Decision Records (`docs/adr/`)** — **COMPLETED (Phase 4)**
 
 > [!IMPORTANT]
 > The security model is non-negotiable. All 8 constraints below must be satisfied in every phase — no shortcuts allowed.

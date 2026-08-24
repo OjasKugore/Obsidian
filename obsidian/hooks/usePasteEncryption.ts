@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { encrypt, toBase58 } from '@/lib/crypto/cipher';
-import { splitKey } from '@/lib/crypto/shamir';
+import { splitAndWrapKey } from '@/lib/crypto/shamir';
 import { importRSAPublicKey, wrapAESKey } from '@/lib/crypto/asymmetric';
 import type { Expiry, CreatePasteBody, CreatePasteResponse, AdataSchema } from '@/lib/api/schemas';
 
@@ -17,6 +17,8 @@ export interface EncryptionOptions {
   expire?: Expiry;
   burnAfterReading?: boolean;
   openDiscussion?: boolean;
+  maxViews?: number;
+  timelockedUntil?: string;
   isShamir?: boolean;
   threshold?: number;
   totalShares?: number;
@@ -24,6 +26,8 @@ export interface EncryptionOptions {
   isAsymmetric?: boolean;
   /** The recipient's RSA-2048 public key in base64 SPKI format */
   recipientPublicKey?: string;
+  /** Array of recipient RSA public keys for per-shard wrapping in Shamir mode */
+  recipientPublicKeys?: Array<string | null | undefined>;
 }
 
 export interface EncryptionResult {
@@ -54,11 +58,14 @@ export function usePasteEncryption() {
         expire = '1day',
         burnAfterReading = true,
         openDiscussion = false,
+        maxViews,
+        timelockedUntil,
         isShamir = false,
         threshold = 2,
         totalShares = 3,
         isAsymmetric = false,
         recipientPublicKey = '',
+        recipientPublicKeys = [],
       } = options;
 
       if (!plaintext.trim()) {
@@ -115,8 +122,10 @@ export function usePasteEncryption() {
           adata: finalAdata,
           meta: {
             expire,
-            burnAfterReading: isShamir ? false : burnAfterReading,
+            burnAfterReading: isShamir ? false : maxViews === 1 ? true : burnAfterReading,
             openDiscussion,
+            maxViews: isShamir ? undefined : maxViews,
+            timelockedUntil,
             shard: isShamir,
             shardIndex: isShamir ? 1 : undefined,
             shardTotal: isShamir ? totalShares : undefined,
@@ -150,8 +159,13 @@ export function usePasteEncryption() {
           // No key in URL — just the #asym sentinel
           primaryShareUrl = `${origin}/${data.pasteId}#asym`;
         } else if (isShamir) {
-          // Split AES key into N shard fragments
-          const shards = splitKey(encResult.rawKey, totalShares, threshold);
+          // Split AES key into N shard fragments (with optional RSA per-shard wrapping)
+          const shards = await splitAndWrapKey(
+            encResult.rawKey,
+            totalShares,
+            threshold,
+            recipientPublicKeys
+          );
           shardUrls = shards.map((shardStr, idx) => ({
             index: idx + 1,
             url: `${origin}/${data.pasteId}#${shardStr}`,
@@ -192,8 +206,8 @@ export function usePasteEncryption() {
   );
 
   const reset = useCallback(() => {
-    setError(null);
     setResult(null);
+    setError(null);
     setIsLoading(false);
   }, []);
 
