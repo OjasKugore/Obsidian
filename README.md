@@ -1,21 +1,80 @@
 # Obsidian
 
-**A zero-knowledge pastebin. The server never sees what you write.**
+## 🔐 What is Obsidian
 
-Built on Next.js 16, evolved from [PrivateBin](https://privatebin.info/)'s security model — extended with asymmetric key wrapping, Shamir's Secret Sharing, and end-to-end encrypted real-time collaboration.
-
----
-
-## The guarantee
-
-Everything is encrypted in your browser before it touches the network. The server stores ciphertext and nothing else — not even a compromised server can read your data, because the decryption key lives only in the URL `#fragment`, which browsers never transmit.
+A zero-knowledge pastebin where **the server never sees what you write**. Built on Next.js 16 and evolved from [PrivateBin](https://privatebin.info/)'s battle-tested security model, extended with asymmetric RSA key wrapping, Shamir's Secret Sharing for multi-party quorum control, and end-to-end encrypted real-time collaboration.
 
 ---
 
-## Four ways to share a secret
+## Features
 
-### 1 · Plain — the PrivateBin baseline
-Write text → compressed (`deflate-raw`) → encrypted (AES-256-GCM, key from PBKDF2-SHA256, 100k iterations) → key appended to the URL fragment. The server never receives it.
+- 🆕 **Modernised Legacy Features** —  next-gen tech stack (Next.js 16, React 19, Tailwind v4, Web Crypto API) for legacy features
+- 👁️ **Zero-Knowledge Trust Visualizer** — animated encryption explainer UI
+- 💥 **N-View Self-Destruct** — atomic burn-after-reading with configurable view limits
+- ⏳ **Time-Locked Notes** — Time Capsule mode for delayed message access
+- 🔐 **Asymmetric RSA-OAEP Key Wrapping** — public-key mode for 1-to-1 recipient delivery
+- 🔑 **Shamir's Secret Sharing** — k-of-n key splitting for multi-party threshold quorum
+- 🔴 **Real-Time E2EE Collaboration** — Pusher + BroadcastChannel for instant encrypted updates
+- ⌨️ **Command Palette** — Cmd+K shortcuts for power-user workflows
+- 📋 **Paste Starter Templates** — pre-built content templates
+- 🗄️ **Encrypted Paste Vault** — searchable collection of saved pastes
+- 🧾 **Cryptographic Destruction Receipts** — JWT-signed proof of paste deletion
+- ✅ **Comprehensive Test Suite** — 85/85 unit tests + 7/7 E2E tests passing
+
+---
+
+## 🛠️ Stack
+
+| Layer | Tech |
+|---|---|
+| 🚀 Framework | Next.js 16, React 19, Tailwind v4 |
+| 🔒 Crypto | Web Crypto API — AES-256-GCM, PBKDF2, RSA-OAEP, custom GF(2⁸) Shamir SSS |
+| 🗄️ Storage | PostgreSQL (Neon) via Prisma |
+| ⚡ Real-time | Pusher WebSockets + `BroadcastChannel` |
+| 🚦 Rate limiting | Upstash Redis, HMAC-SHA256 IP hashing |
+
+---
+
+## 🚀 Quickstart
+
+```bash
+cd obsidian
+npm install
+```
+
+`.env.local`:
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require"
+IP_HMAC_SECRET=<32_byte_secret> # openssl rand -hex 32
+
+# optional — enables remote real-time collaboration
+PUSHER_APP_ID=
+PUSHER_KEY=
+PUSHER_SECRET=
+PUSHER_CLUSTER=
+
+NEXT_PUBLIC_PUSHER_KEY=
+NEXT_PUBLIC_PUSHER_CLUSTER=
+```
+
+```bash
+npm run db:generate && npm run db:push
+npm run dev        # http://localhost:3000
+```
+
+| Check | Command |
+|---|---|
+| Lint | `npm run lint` |
+| Unit tests | `npm test` |
+| Production build | `npm run build && npm start` |
+
+---
+
+## 4️⃣ Four ways to share a secret
+
+### 1️⃣ Plain — the PrivateBin baseline
+
+**Key in URL fragment:** encrypt locally, share link with embedded key — one-click decrypt for recipient, server learns nothing.
 
 ```mermaid
 sequenceDiagram
@@ -35,8 +94,9 @@ sequenceDiagram
     Recipient->>Recipient: Decrypt using #fragment key
 ```
 
-### 2 · Asymmetric — RSA-OAEP key wrapping
-Instead of a key in the URL, the AES key is wrapped with the *recipient's* RSA-2048 public key. The link (`/<pasteId>#asym`) is useless without their private key — safe even if it leaks in Slack, a clipboard, or a log.
+### 2️⃣ Asymmetric — RSA-OAEP key wrapping
+
+**Recipient's public key wraps the AES key:** link is useless without their private key — safe for untrusted channels (Slack, email, logs).
 
 ```mermaid
 sequenceDiagram
@@ -57,8 +117,9 @@ sequenceDiagram
     Recipient->>Recipient: Unwrap AES key → decrypt
 ```
 
-### 3 · Shamir — k-of-n quorum control
-The AES key is split into *n* shards over GF(2⁸). Any *k* shards reconstruct it via Lagrange interpolation; fewer than *k* reveal nothing. Built for secrets that need multiple people to agree before they're readable.
+### 3️⃣ Shamir — k-of-n quorum control
+
+**Split the AES key into N shards, require K to unlock:** multi-party threshold control via Lagrange interpolation over GF(2⁸).
 
 ```mermaid
 sequenceDiagram
@@ -80,8 +141,9 @@ sequenceDiagram
     Holder1->>Holder1: Decrypt
 ```
 
-### 4 · Collab — live E2EE editing
-Two peers on the same paste see each other's edits in real time. Pusher relays only ciphertext — it never holds a key.
+### 4️⃣ Collab — live E2EE editing
+
+**Real-time collaborative editing:** encrypted deltas streamed via Pusher as a blind relay—server never holds keys or plaintext.
 
 ```mermaid
 sequenceDiagram
@@ -100,66 +162,34 @@ sequenceDiagram
 
 ---
 
-## Run it
-
-```bash
-cd obsidian
-npm install
-```
-
-`.env.local`:
-```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require"
-IP_HMAC_SECRET="openssl rand -hex 32"
-
-# optional — enables remote real-time collaboration
-PUSHER_APP_ID=
-PUSHER_KEY=
-PUSHER_SECRET=
-PUSHER_CLUSTER=
-NEXT_PUBLIC_PUSHER_KEY=
-NEXT_PUBLIC_PUSHER_CLUSTER=
-```
-
-```bash
-npm run db:generate && npm run db:push
-npm run dev        # http://localhost:3000
-```
-
-| Check | Command |
-|---|---|
-| Lint | `npm run lint` |
-| Unit tests | `npm test` |
-| Production build | `npm run build && npm start` |
-
----
-
-## Stack
-
-| Layer | Tech |
-|---|---|
-| Framework | Next.js 16, React 19, Tailwind v4 |
-| Crypto | Web Crypto API — AES-256-GCM, PBKDF2, RSA-OAEP, custom GF(2⁸) Shamir SSS |
-| Storage | PostgreSQL (Neon) via Prisma |
-| Real-time | Pusher WebSockets + `BroadcastChannel` |
-| Rate limiting | Upstash Redis, HMAC-SHA256 IP hashing |
-
----
-
-## Where things live
+## 📁 Project structure
 
 ```
 obsidian/
-├── app/api/v1/paste/        create · read · delete · comment
-├── app/api/v1/collab/       presence-channel auth
-├── components/editor/       paste creation UI, recipient-key input
-├── components/viewer/       decryption, quorum panel, comments
-├── lib/crypto/              cipher · kdf · asymmetric · shamir · compress
-├── workers/crypto.worker.ts off-main-thread PBKDF2
-├── hooks/                   usePasteEncryption · usePasteDecryption · useCollab
-└── prisma/schema.prisma     Paste · Comment · AccessLog
+├── app/          API routes · pages · vault
+│   ├── api/v1/paste/       create · read · delete · comment
+│   ├── api/v1/collab/      presence-channel auth
+│   ├── pad/                paste editor UI
+│   └── vault/              user vault
+├── components/     UI components
+│   ├── editor/           paste creation UI
+│   ├── viewer/           decryption · quorum panel · comments
+│   ├── crypto/           crypto helpers
+│   ├── collab/           real-time collaboration
+│   ├── sharing/          share UI
+│   ├── qr/               QR code generator
+│   ├── ui/               generic UI primitives
+│   └── header/ · layout/ layout components
+├── lib/              core libraries
+│   ├── crypto/           cipher · kdf · asymmetric · shamir · compress
+│   ├── api/              API clients
+│   └── db                database helpers
+├── workers/          off-main-thread PBKDF2 worker
+├── hooks/            custom React hooks
+│   └── usePasteEncryption · usePasteDecryption · useCollab
+├── prisma/           Prisma schema → Paste · Comment · AccessLog
+├── tests/            unit · e2e tests
+└── public/           static assets
 ```
 
 ---
-
-*Zero-knowledge means what it says: even we can't read what you paste.*
