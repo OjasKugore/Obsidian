@@ -1,1 +1,33 @@
-# (empty — obsidian-scaffold/ has been deleted)
+# Dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# Testing & Playwright
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# Next.js
+.next/
+out/
+build/
+.vercel/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc & OS
+.DS_Store
+*.pem
+*.log
+
+# Env files (NEVER commit .env.local)
+.env*.local
+!.env.example
+
+# Next.js agent docs
+AGENTS.md
+CLAUDE.md
