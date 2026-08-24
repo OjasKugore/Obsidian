@@ -16,7 +16,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Moon, Sun, Plus, Shield, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { IdentityPanel } from '@/components/header/IdentityPanel';
-import { CliPanel } from '@/components/header/CliPanel';
 import { TrustVisualizer } from '@/components/crypto/TrustVisualizer';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import { QRScannerModal } from '@/components/qr/QRScannerModal';
@@ -168,9 +167,6 @@ export function Header({
               <span>Search</span>
               <kbd className="px-1 py-0.2 rounded bg-background border border-border text-[10px] text-foreground">⌘K</kbd>
             </button>
-
-            {/* CLI Panel Modal Trigger */}
-            <CliPanel />
 
             {/* Identity key manager panel */}
             <IdentityPanel />
