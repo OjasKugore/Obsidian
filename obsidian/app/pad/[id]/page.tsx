@@ -20,7 +20,7 @@ import { Key, Lock, ShieldAlert, Loader2 } from 'lucide-react';
 
 export default function LivePadRoomPage() {
   const params = useParams();
-  const roomId = typeof params?.id === 'string' ? params.id : '';
+  const roomId = typeof params?.id === 'string' ? params.id.toLowerCase().trim() : '';
 
   const [rawKey, setRawKey] = React.useState<Uint8Array | null>(null);
   const [manualKeyInput, setManualKeyInput] = React.useState('');

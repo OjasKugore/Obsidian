@@ -250,8 +250,8 @@ export function useCollab({
         });
         pusherRef.current = client;
 
-        const channelName = `presence-collab-${pasteId}`;
-        const channel = client.subscribe(channelName) as PresenceChannel;
+        const cleanChannelName = `presence-collab-${pasteId.toLowerCase().trim()}`;
+        const channel = client.subscribe(cleanChannelName) as PresenceChannel;
         channelRef.current = channel;
 
         channel.bind('pusher:subscription_succeeded', (members: {
@@ -314,13 +314,29 @@ export function useCollab({
                 openDiscussion: true,
                 customKey: rawKey,
               });
-              channel.trigger('client-delta', {
+              const msg: EncryptedDeltaMessage = {
                 v: 2,
                 ct: enc.ciphertext,
                 adata: enc.adata,
                 senderId: tabId,
                 timestamp: Date.now(),
-              });
+              };
+              if (channelRef.current) {
+                try {
+                  channelRef.current.trigger('client-delta', msg);
+                } catch {
+                  // ignore
+                }
+              }
+              fetch('/api/v1/collab/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  channel: `presence-collab-${pasteId.toLowerCase().trim()}`,
+                  event: 'delta',
+                  data: msg,
+                }),
+              }).catch(() => {});
             } catch {
               // ignore
             }
@@ -335,13 +351,29 @@ export function useCollab({
               openDiscussion: true,
               customKey: rawKey,
             });
-            channel.trigger('client-delta', {
+            const msg: EncryptedDeltaMessage = {
               v: 2,
               ct: enc.ciphertext,
               adata: enc.adata,
               senderId: tabId,
               timestamp: Date.now(),
-            });
+            };
+            if (channelRef.current) {
+              try {
+                channelRef.current.trigger('client-delta', msg);
+              } catch {
+                // ignore
+              }
+            }
+            fetch('/api/v1/collab/broadcast', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                channel: `presence-collab-${pasteId.toLowerCase().trim()}`,
+                event: 'delta',
+                data: msg,
+              }),
+            }).catch(() => {});
           } catch {
             // ignore
           }
@@ -502,7 +534,7 @@ export function useCollab({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channel: `presence-collab-${pasteId}`,
+          channel: `presence-collab-${pasteId.toLowerCase().trim()}`,
           event,
           data: payload,
         }),
@@ -514,6 +546,7 @@ export function useCollab({
   const broadcastContent = useCallback(
     async (newText: string) => {
       setContent(newText);
+      contentRef.current = newText;
 
       if (!rawKey || isAsymmetric) return;
 
@@ -552,7 +585,7 @@ export function useCollab({
         } catch (encErr) {
           console.error('[useCollab] Failed to encrypt delta:', encErr);
         }
-      }, 50);
+      }, 30);
     },
     [rawKey, formatter, isAsymmetric, sendCollabEvent]
   );
@@ -631,17 +664,11 @@ export function useCollab({
         }
       }
 
-      if (channelRef.current) {
-        try {
-          channelRef.current.trigger('client-typing', message);
-        } catch {
-          // ignore
-        }
-      }
+      sendCollabEvent('typing', message);
     } catch {
       // ignore
     }
-  }, [rawKey, isAsymmetric, currentUser]);
+  }, [rawKey, isAsymmetric, currentUser, sendCollabEvent]);
 
   // ── Disconnect / Teardown ─────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
