@@ -55,29 +55,38 @@ export default function PadLauncherPage() {
     e.preventDefault();
     setJoinError(null);
 
-    const trimmed = joinInput.trim();
+    let trimmed = joinInput.trim();
     if (!trimmed) return;
 
-    // Check if input is a full URL: https://obsidian.domain/pad/abc#key
+    // Normalize URL without scheme
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && trimmed.includes('/pad/')) {
+      trimmed = 'https://' + trimmed;
+    }
+
     try {
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         const parsed = new URL(trimmed);
-        if (parsed.pathname.startsWith('/pad/')) {
-          router.push(`${parsed.pathname}${parsed.hash}`);
+        const match = parsed.pathname.match(/\/pad\/([0-9a-fA-F]+)/);
+        const hash = parsed.hash || '';
+        if (match && hash) {
+          router.push(`/pad/${match[1]}${hash}`);
           return;
         }
       }
     } catch {
-      // not a url, try direct path
+      // fallback to string extraction
     }
 
     if (trimmed.includes('#')) {
-      const [id, hash] = trimmed.split('#');
-      router.push(`/pad/${id}#${hash}`);
-      return;
+      const [idPart, hashPart] = trimmed.split('#');
+      const cleanId = idPart.replace(/^.*\/pad\//, '').replace(/^\//, '').trim();
+      if (cleanId && hashPart) {
+        router.push(`/pad/${cleanId}#${hashPart.trim()}`);
+        return;
+      }
     }
 
-    setJoinError('Please enter a full room link containing the #key hash fragment.');
+    setJoinError('Please enter a valid room link containing the room ID and #key hash fragment.');
   };
 
   return (

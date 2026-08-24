@@ -48,17 +48,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { socket_id, channel_name } = parsed.data;
 
-  // Extract paste ID from channel name: "presence-collab-{pasteId}"
+  // Extract paste/room ID from channel name: "presence-collab-{pasteId}"
   const pasteId = channel_name.replace('presence-collab-', '');
 
-  // Confirm the paste exists (asymmetric pastes allowed for read-only collab view)
-  const paste = await prisma.paste.findUnique({
-    where: { id: pasteId },
-    select: { id: true, recipientMode: true },
-  });
+  // Validate format (16 hex chars)
+  if (!/^[0-9a-f]{16}$/i.test(pasteId)) {
+    return NextResponse.json({ error: 'Invalid room/paste ID format' }, { status: 400 });
+  }
 
-  if (!paste) {
-    return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
+  // If paste is in DB, check if expired
+  try {
+    const paste = await prisma.paste.findUnique({
+      where: { id: pasteId },
+      select: { id: true, expiresAt: true },
+    });
+    if (paste && paste.expiresAt && paste.expiresAt < new Date()) {
+      return NextResponse.json({ error: 'Paste has expired' }, { status: 410 });
+    }
+  } catch {
+    // If DB check fails or table empty, continue with ephemeral room authorization
   }
 
   // ── Phase 3: Pseudonym and avatar color generation ────────────────────────

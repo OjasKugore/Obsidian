@@ -281,9 +281,18 @@ export function useCollab({
             });
           }
           setCollaborators(list);
+
+          // If there are existing members in the room and we don't have text yet, request a state sync
+          if (members.count > 1 && !contentRef.current) {
+            try {
+              channel.trigger('client-sync-req', { senderId: tabId });
+            } catch {
+              // ignore
+            }
+          }
         });
 
-        channel.bind('pusher:member_added', (member: { id: string; info: { name: string; color: string } }) => {
+        channel.bind('pusher:member_added', async (member: { id: string; info: { name: string; color: string } }) => {
           if (cancelled) return;
           setCollaborators((prev) => {
             if (prev.some((m) => m.id === member.id)) return prev;
@@ -296,6 +305,46 @@ export function useCollab({
               },
             ];
           });
+
+          // Proactively send our current document snapshot to the joining peer
+          if (contentRef.current) {
+            try {
+              const enc = await encrypt(contentRef.current, formatter, {
+                burnAfterReading: false,
+                openDiscussion: true,
+                customKey: rawKey,
+              });
+              channel.trigger('client-delta', {
+                v: 2,
+                ct: enc.ciphertext,
+                adata: enc.adata,
+                senderId: tabId,
+                timestamp: Date.now(),
+              });
+            } catch {
+              // ignore
+            }
+          }
+        });
+
+        channel.bind('client-sync-req', async (reqData: { senderId: string }) => {
+          if (!reqData || reqData.senderId === tabId || !contentRef.current) return;
+          try {
+            const enc = await encrypt(contentRef.current, formatter, {
+              burnAfterReading: false,
+              openDiscussion: true,
+              customKey: rawKey,
+            });
+            channel.trigger('client-delta', {
+              v: 2,
+              ct: enc.ciphertext,
+              adata: enc.adata,
+              senderId: tabId,
+              timestamp: Date.now(),
+            });
+          } catch {
+            // ignore
+          }
         });
 
         channel.bind('pusher:member_removed', (member: { id: string }) => {
@@ -332,21 +381,62 @@ export function useCollab({
           }
         });
 
-        channel.bind('client-locked', (data: { senderId: string; finalContent: string }) => {
+        const handleIncomingDelta = async (data: EncryptedDeltaMessage) => {
+          if (!data || data.senderId === tabId) return;
+          try {
+            const decrypted = await decrypt(data.ct, data.adata, rawKey);
+            if (!cancelled) {
+              isBroadcastingRef.current = true;
+              setContent(decrypted);
+              if (onRemoteContentRef.current) onRemoteContentRef.current(decrypted);
+            }
+          } catch (decErr) {
+            console.warn('[useCollab Pusher] Decrypt failed:', decErr);
+          }
+        };
+
+        channel.bind('client-delta', handleIncomingDelta);
+        channel.bind('delta', handleIncomingDelta);
+
+        const handleIncomingTyping = async (data: EncryptedTypingMessage) => {
+          if (!data || data.senderId === tabId) return;
+          try {
+            const decrypted = await decrypt(data.ct, data.adata, rawKey);
+            const parsed = JSON.parse(decrypted) as { name: string; isTyping: boolean };
+            if (parsed.isTyping && parsed.name && !cancelled) {
+              setTypingUsers((prev) =>
+                prev.includes(parsed.name) ? prev : [...prev, parsed.name]
+              );
+            }
+          } catch {
+            // ignore
+          }
+        };
+
+        channel.bind('client-typing', handleIncomingTyping);
+        channel.bind('typing', handleIncomingTyping);
+
+        const handleIncomingLock = (data: { senderId: string; finalContent: string }) => {
           if (!data || data.senderId === tabId) return;
           if (!cancelled) {
             isBroadcastingRef.current = true;
             if (data.finalContent !== undefined) setContent(data.finalContent);
             if (onRemoteLockRef.current) onRemoteLockRef.current(data.finalContent || '');
           }
-        });
+        };
 
-        channel.bind('client-unlocked', (data: { senderId: string }) => {
+        channel.bind('client-locked', handleIncomingLock);
+        channel.bind('locked', handleIncomingLock);
+
+        const handleIncomingUnlock = (data: { senderId: string }) => {
           if (!data || data.senderId === tabId) return;
           if (!cancelled) {
             if (onRemoteUnlockRef.current) onRemoteUnlockRef.current();
           }
-        });
+        };
+
+        channel.bind('client-unlocked', handleIncomingUnlock);
+        channel.bind('unlocked', handleIncomingUnlock);
 
         channel.bind('pusher:subscription_error', (err: unknown) => {
           console.warn('[useCollab] Pusher subscription error:', err);
@@ -397,6 +487,29 @@ export function useCollab({
     };
   }, [enabled, pasteId, rawKey, isAsymmetric]);
 
+  const sendCollabEvent = useCallback((event: string, payload: unknown) => {
+    let sent = false;
+    if (channelRef.current) {
+      try {
+        sent = channelRef.current.trigger(`client-${event}`, payload);
+      } catch {
+        sent = false;
+      }
+    }
+    // If client trigger is disabled on Pusher app, broadcast via authenticated server endpoint
+    if (!sent && pasteId) {
+      fetch('/api/v1/collab/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: `presence-collab-${pasteId}`,
+          event,
+          data: payload,
+        }),
+      }).catch(() => {});
+    }
+  }, [pasteId]);
+
   // ── Broadcast Delta (AES-256-GCM Encrypted) ───────────────────────────────────
   const broadcastContent = useCallback(
     async (newText: string) => {
@@ -435,19 +548,13 @@ export function useCollab({
             }
           }
 
-          if (channelRef.current) {
-            try {
-              channelRef.current.trigger('client-delta', message);
-            } catch {
-              // ignore
-            }
-          }
+          sendCollabEvent('delta', message);
         } catch (encErr) {
           console.error('[useCollab] Failed to encrypt delta:', encErr);
         }
       }, 50);
     },
-    [rawKey, formatter, isAsymmetric]
+    [rawKey, formatter, isAsymmetric, sendCollabEvent]
   );
 
   // ── Broadcast Lock event to all peers ─────────────────────────────────────────
@@ -464,17 +571,11 @@ export function useCollab({
       }
     }
 
-    if (channelRef.current) {
-      try {
-        channelRef.current.trigger('client-locked', {
-          senderId: tabIdRef.current,
-          finalContent,
-        });
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
+    sendCollabEvent('locked', {
+      senderId: tabIdRef.current,
+      finalContent,
+    });
+  }, [sendCollabEvent]);
 
   // ── Broadcast Unlock event to all peers ───────────────────────────────────────
   const broadcastUnlock = useCallback(() => {
@@ -489,16 +590,10 @@ export function useCollab({
       }
     }
 
-    if (channelRef.current) {
-      try {
-        channelRef.current.trigger('client-unlocked', {
-          senderId: tabIdRef.current,
-        });
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
+    sendCollabEvent('unlocked', {
+      senderId: tabIdRef.current,
+    });
+  }, [sendCollabEvent]);
 
   const lastTypingPingRef = useRef(0);
 
