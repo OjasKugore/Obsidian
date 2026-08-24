@@ -28,6 +28,21 @@ export function makeConfigCommand(): Command {
     });
 
   config
+    .command('get-url')
+    .description('Print the current server URL')
+    .action(() => {
+      console.log(getBaseUrl());
+    });
+
+  config
+    .command('reset')
+    .description('Reset server URL to default (http://localhost:3000)')
+    .action(() => {
+      setBaseUrl('http://localhost:3000');
+      success('Server URL reset to http://localhost:3000');
+    });
+
+  config
     .command('show')
     .description('Show current CLI configuration')
     .action(() => {

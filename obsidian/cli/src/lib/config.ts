@@ -7,7 +7,7 @@
 
 import { homedir } from 'os';
 import { join } from 'path';
-import { mkdirSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 
 /** Root directory for all CLI config and key files */
 export const CLI_DIR = join(homedir(), '.obsidian-cli');
@@ -31,7 +31,6 @@ export function getBaseUrl(): string {
   if (process.env.OBSIDIAN_URL) return process.env.OBSIDIAN_URL.replace(/\/$/, '');
 
   try {
-    const { readFileSync } = require('fs');
     const cfg = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
     if (cfg.url) return (cfg.url as string).replace(/\/$/, '');
   } catch { /* no config file */ }
@@ -41,7 +40,6 @@ export function getBaseUrl(): string {
 
 export function setBaseUrl(url: string): void {
   ensureCliDir();
-  const { readFileSync, writeFileSync } = require('fs');
   let cfg: Record<string, unknown> = {};
   try { cfg = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')); } catch { /* fresh */ }
   cfg.url = url;
