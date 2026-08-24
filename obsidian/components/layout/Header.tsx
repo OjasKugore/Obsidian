@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes';
 import { Moon, Sun, Plus, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { IdentityPanel } from '@/components/header/IdentityPanel';
+import { CliPanel } from '@/components/header/CliPanel';
 
 export function Header() {
   const pathname = usePathname();
@@ -56,6 +57,9 @@ export function Header() {
 
         {/* Right Tools & Identity */}
         <div className="flex items-center gap-2.5">
+          {/* CLI panel */}
+          <CliPanel />
+
           {/* Identity key manager panel */}
           <IdentityPanel />
 
