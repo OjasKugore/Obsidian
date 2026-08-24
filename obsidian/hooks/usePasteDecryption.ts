@@ -6,8 +6,10 @@ import {
   parseShard,
   combineShards,
   extractShardFromUrl,
+  unwrapShardWithRSA,
 } from '@/lib/crypto/shamir';
 import { unwrapAESKey } from '@/lib/crypto/asymmetric';
+import { loadIdentityKey } from '@/lib/crypto/keystore';
 import type { GetPasteResponse } from '@/lib/api/schemas';
 
 export interface DecryptionState {
@@ -66,10 +68,8 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     ) => {
       setState((prev) => ({ ...prev, isDecrypting: true, error: null }));
       try {
-        console.log('[decryptWithKey] Decrypting ciphertext with key bytes:', key.length);
         const decrypted = await decrypt(data.ct, data.adata, key);
         const formatter = data.adata[1] || 'plaintext';
-        console.log('[decryptWithKey] SUCCESS! Plaintext length:', decrypted.length);
 
         setState((prev) => ({
           ...prev,
@@ -140,7 +140,6 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
           isLoading: false,
           isDecrypting: false,
           error: message,
-          loadedShards: loadedList,
         }));
       }
     },
@@ -148,31 +147,16 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
   );
 
   const fetchAndDecrypt = useCallback(async () => {
-    if (!pasteId) return;
-
-    setState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      isBurned: false,
-    }));
-
-    // 1. Extract key from URL hash (#fragment)
-    const hash = typeof window !== 'undefined' ? window.location.hash : '';
-    const keyFragment = hash.startsWith('#') ? hash.slice(1) : hash;
-
-    if (!keyFragment) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error:
-          'Decryption key missing from URL fragment (#). The creator did not share the full link.',
-      }));
-      return;
-    }
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // 2. Fetch encrypted ciphertext & adata from server
+      // 1. Extract key fragment from URL hash
+      const keyFragment =
+        typeof window !== 'undefined'
+          ? window.location.hash.replace(/^#/, '')
+          : '';
+
+      // 2. Fetch encrypted paste metadata + ciphertext from server
       const response = await fetch(`/api/v1/paste/${pasteId}`);
 
       if (response.status === 404) {
@@ -219,10 +203,27 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
           parsedInitialShard?.total ?? data.meta.shardTotal ?? threshold;
 
         if (parsedInitialShard) {
-          shardMapRef.current.set(
-            parsedInitialShard.index,
-            parsedInitialShard.rawString
-          );
+          let shardToStore = parsedInitialShard.rawString;
+
+          // If shard is RSA-wrapped, attempt automatic unwrapping using local IndexedDB identity key
+          if (parsedInitialShard.isRSAWrapped) {
+            try {
+              const idKey = await loadIdentityKey();
+              if (idKey?.privateKey) {
+                shardToStore = await unwrapShardWithRSA(
+                  parsedInitialShard.rawString,
+                  idKey.privateKey
+                );
+              }
+            } catch {
+              // Will prompt user or request private key
+            }
+          }
+
+          const parsedUnwrapped = parseShard(shardToStore);
+          if (parsedUnwrapped && !parsedUnwrapped.isRSAWrapped) {
+            shardMapRef.current.set(parsedUnwrapped.index, parsedUnwrapped.rawString);
+          }
         }
 
         setState((prev) => ({
@@ -239,6 +240,18 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
 
       // 4. Asymmetric RSA-OAEP mode: #asym sentinel → show private key prompt
       if (keyFragment === 'asym' || data.meta.recipientMode) {
+        // Try auto-unlocking with IndexedDB identity key if present
+        try {
+          const idKey = await loadIdentityKey();
+          if (idKey?.privateKey && data.adata[4]) {
+            const rawAESKey = await unwrapAESKey(data.adata[4] as string, idKey.privateKey);
+            await decryptWithKey(rawAESKey, data);
+            return;
+          }
+        } catch {
+          // Fall through to manual unlock prompt
+        }
+
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -280,14 +293,43 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
    */
   const addShard = useCallback(
     async (input: string): Promise<{ success: boolean; error?: string }> => {
-      const shardStr = extractShardFromUrl(input) || input.trim();
-      const parsed = parseShard(shardStr);
+      let shardStr = extractShardFromUrl(input) || input.trim();
+      let parsed = parseShard(shardStr);
 
       if (!parsed) {
         return {
           success: false,
           error:
             'Invalid shard format. Please paste a valid shard token or full shard link.',
+        };
+      }
+
+      // If shard is RSA-wrapped, attempt automatic unwrap with local identity key
+      if (parsed.isRSAWrapped) {
+        const shardIndex = parsed.index;
+        try {
+          const idKey = await loadIdentityKey();
+          if (idKey?.privateKey) {
+            shardStr = await unwrapShardWithRSA(shardStr, idKey.privateKey);
+            parsed = parseShard(shardStr);
+          } else {
+            return {
+              success: false,
+              error: `Shard #${shardIndex} is RSA-encrypted for a specific recipient. Import your private key in the Identity panel first.`,
+            };
+          }
+        } catch {
+          return {
+            success: false,
+            error: `Shard #${shardIndex} is RSA-encrypted and failed to unwrap with your private key.`,
+          };
+        }
+      }
+
+      if (!parsed || parsed.isRSAWrapped) {
+        return {
+          success: false,
+          error: 'Failed to unwrap RSA encrypted shard.',
         };
       }
 
@@ -322,7 +364,6 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
   const decryptWithPrivateKey = useCallback(
     async (privateKey: CryptoKey) => {
       const data = fetchedPasteDataRef.current;
-      console.log('[decryptWithPrivateKey] Unlocking with privateKey. Fetched paste data:', data);
       if (!data) {
         setState((prev) => ({
           ...prev,
@@ -332,7 +373,6 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       }
 
       const wrappedKeyBase64 = data.adata[4];
-      console.log('[decryptWithPrivateKey] adata[4] (wrappedKeyBase64):', wrappedKeyBase64 ? wrappedKeyBase64.slice(0, 30) + '...' : undefined);
       if (!wrappedKeyBase64 || typeof wrappedKeyBase64 !== 'string') {
         setState((prev) => ({
           ...prev,
@@ -349,22 +389,20 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       }));
 
       try {
-        console.log('[decryptWithPrivateKey] Unwrapping AES key with RSA private key...');
         const rawAESKey = await unwrapAESKey(wrappedKeyBase64, privateKey);
-        console.log('[decryptWithPrivateKey] AES key unwrapped successfully! Raw key bytes:', rawAESKey.length);
         await decryptWithKey(rawAESKey, data);
       } catch (err: unknown) {
         console.error('[decryptWithPrivateKey ERROR]', err);
         let message = 'Decryption failed — wrong private key or corrupted data.';
         if (err instanceof Error && err.name === 'OperationError') {
-          message = 'Key Mismatch: Your current RSA private key does not match the public key used to encrypt this paste. (Did you regenerate your keypair after creating this paste?)';
+          message = 'Key Mismatch: Your current RSA private key does not match the public key used to encrypt this paste.';
         } else if (err instanceof Error) {
           message = err.message;
         }
         setState((prev) => ({
           ...prev,
           isDecrypting: false,
-          isAwaitingPrivateKey: true, // re-show the prompt
+          isAwaitingPrivateKey: true,
           error: message,
         }));
       }

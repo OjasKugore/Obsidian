@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * hooks/useCollab.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Real-Time End-to-End Encrypted (E2EE) Collaboration Hook.
+ * Supports cross-tab BroadcastChannel sync and remote Pusher WSS.
+ * All keystroke deltas and presence payloads are encrypted with AES-256-GCM.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PusherClient, { type PresenceChannel } from 'pusher-js';
 import { encrypt, decrypt } from '@/lib/crypto/cipher';
@@ -21,6 +30,7 @@ export interface UseCollabOptions {
   enabled?: boolean;
   onRemoteContent?: (content: string) => void;
   onRemoteLock?: (finalText: string) => void;
+  onRemoteUnlock?: () => void;
 }
 
 export interface EncryptedDeltaMessage {
@@ -58,6 +68,7 @@ export function useCollab({
   enabled = true,
   onRemoteContent,
   onRemoteLock,
+  onRemoteUnlock,
 }: UseCollabOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -72,11 +83,18 @@ export function useCollab({
   const myPeerRef = useRef<Collaborator | null>(null);
   const onRemoteContentRef = useRef(onRemoteContent);
   const onRemoteLockRef = useRef(onRemoteLock);
+  const onRemoteUnlockRef = useRef(onRemoteUnlock);
+  const contentRef = useRef(content);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   useEffect(() => {
     onRemoteContentRef.current = onRemoteContent;
     onRemoteLockRef.current = onRemoteLock;
-  }, [onRemoteContent, onRemoteLock]);
+    onRemoteUnlockRef.current = onRemoteUnlock;
+  }, [onRemoteContent, onRemoteLock, onRemoteUnlock]);
 
   const pusherRef = useRef<PusherClient | null>(null);
   const channelRef = useRef<PresenceChannel | null>(null);
@@ -121,11 +139,12 @@ export function useCollab({
           const msg = event.data;
 
           if (msg.type === 'peer-ping' && msg.senderId !== tabId) {
-            // Respond with our peer info
+            // Respond with our peer info and current text snapshot
             bc?.postMessage({
               type: 'peer-pong',
               peer: myPeer,
               senderId: tabId,
+              currentText: contentRef.current,
             });
             setCollaborators((prev) => {
               if (prev.some((p) => p.id === msg.peer.id)) return prev;
@@ -138,6 +157,11 @@ export function useCollab({
               if (prev.some((p) => p.id === msg.peer.id)) return prev;
               return [...prev, msg.peer];
             });
+            // If the joining peer has empty content, take the responder's current text
+            if (msg.currentText && !contentRef.current) {
+              setContent(msg.currentText);
+              if (onRemoteContentRef.current) onRemoteContentRef.current(msg.currentText);
+            }
           }
 
           if (msg.type === 'peer-leave') {
@@ -161,8 +185,14 @@ export function useCollab({
           if (msg.type === 'client-locked' && msg.senderId !== tabId) {
             if (!cancelled) {
               isBroadcastingRef.current = true;
-              setContent(msg.finalContent);
-              if (onRemoteLockRef.current) onRemoteLockRef.current(msg.finalContent);
+              if (msg.finalContent !== undefined) setContent(msg.finalContent);
+              if (onRemoteLockRef.current) onRemoteLockRef.current(msg.finalContent || '');
+            }
+          }
+
+          if (msg.type === 'client-unlocked' && msg.senderId !== tabId) {
+            if (!cancelled) {
+              if (onRemoteUnlockRef.current) onRemoteUnlockRef.current();
             }
           }
 
@@ -198,7 +228,7 @@ export function useCollab({
       }
     }
 
-    // 2. Setup Pusher WSS (if valid, non-placeholder credentials configured)
+    // 2. Setup Pusher WSS (if configured)
     const rawPusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const isPusherConfigured =
       Boolean(rawPusherKey) &&
@@ -261,8 +291,8 @@ export function useCollab({
               ...prev,
               {
                 id: member.id,
-                name: member.info?.name || 'Collaborator',
-                color: member.info?.color || '#10b981',
+                name: member.info?.name || 'Anonymous',
+                color: member.info?.color || '#8b5cf6',
               },
             ];
           });
@@ -301,14 +331,23 @@ export function useCollab({
             // ignore
           }
         });
+
         channel.bind('client-locked', (data: { senderId: string; finalContent: string }) => {
           if (!data || data.senderId === tabId) return;
           if (!cancelled) {
             isBroadcastingRef.current = true;
-            setContent(data.finalContent);
-            if (onRemoteLockRef.current) onRemoteLockRef.current(data.finalContent);
+            if (data.finalContent !== undefined) setContent(data.finalContent);
+            if (onRemoteLockRef.current) onRemoteLockRef.current(data.finalContent || '');
           }
         });
+
+        channel.bind('client-unlocked', (data: { senderId: string }) => {
+          if (!data || data.senderId === tabId) return;
+          if (!cancelled) {
+            if (onRemoteUnlockRef.current) onRemoteUnlockRef.current();
+          }
+        });
+
         channel.bind('pusher:subscription_error', (err: unknown) => {
           console.warn('[useCollab] Pusher subscription error:', err);
           if (!cancelled) {
@@ -358,17 +397,12 @@ export function useCollab({
     };
   }, [enabled, pasteId, rawKey, isAsymmetric]);
 
-  // ── Broadcast encrypted text updates ──────────────────────────────────────────
+  // ── Broadcast Delta (AES-256-GCM Encrypted) ───────────────────────────────────
   const broadcastContent = useCallback(
-    async (newContent: string) => {
-      setContent(newContent);
+    async (newText: string) => {
+      setContent(newText);
 
       if (!rawKey || isAsymmetric) return;
-
-      if (isBroadcastingRef.current) {
-        isBroadcastingRef.current = false;
-        return;
-      }
 
       if (broadcastThrottleRef.current) {
         clearTimeout(broadcastThrottleRef.current);
@@ -376,7 +410,7 @@ export function useCollab({
 
       broadcastThrottleRef.current = setTimeout(async () => {
         try {
-          const enc = await encrypt(newContent, formatter, {
+          const enc = await encrypt(newText, formatter, {
             burnAfterReading: false,
             openDiscussion: true,
             customKey: rawKey,
@@ -390,7 +424,6 @@ export function useCollab({
             timestamp: Date.now(),
           };
 
-          // 1. Send to local browser tabs via BroadcastChannel
           if (bcRef.current) {
             try {
               bcRef.current.postMessage({
@@ -398,11 +431,10 @@ export function useCollab({
                 ...message,
               });
             } catch {
-              // ignore if channel closed
+              // ignore
             }
           }
 
-          // 2. Send to remote peers via Pusher presence channel
           if (channelRef.current) {
             try {
               channelRef.current.trigger('client-delta', message);
@@ -413,12 +445,12 @@ export function useCollab({
         } catch (encErr) {
           console.error('[useCollab] Failed to encrypt delta:', encErr);
         }
-      }, 80); // 80ms for ultra-responsive sync
+      }, 50);
     },
     [rawKey, formatter, isAsymmetric]
   );
 
-  // ── Broadcast Lock & Finalize event to all peers ──────────────────────────────
+  // ── Broadcast Lock event to all peers ─────────────────────────────────────────
   const broadcastLock = useCallback((finalContent: string) => {
     if (bcRef.current) {
       try {
@@ -437,6 +469,30 @@ export function useCollab({
         channelRef.current.trigger('client-locked', {
           senderId: tabIdRef.current,
           finalContent,
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // ── Broadcast Unlock event to all peers ───────────────────────────────────────
+  const broadcastUnlock = useCallback(() => {
+    if (bcRef.current) {
+      try {
+        bcRef.current.postMessage({
+          type: 'client-unlocked',
+          senderId: tabIdRef.current,
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    if (channelRef.current) {
+      try {
+        channelRef.current.trigger('client-unlocked', {
+          senderId: tabIdRef.current,
         });
       } catch {
         // ignore
@@ -536,6 +592,7 @@ export function useCollab({
     error,
     broadcastContent,
     broadcastLock,
+    broadcastUnlock,
     broadcastTyping,
     disconnect,
   };

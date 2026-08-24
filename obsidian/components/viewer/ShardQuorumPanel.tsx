@@ -18,9 +18,11 @@ import {
   Lock,
   AlertCircle,
   Info,
+  QrCode,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { QRScannerModal } from '@/components/qr/QRScannerModal';
 
 interface ShardQuorumPanelProps {
   threshold: number;
@@ -42,6 +44,7 @@ export function ShardQuorumPanel({
   const [shardInput, setShardInput] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [inputError, setInputError] = React.useState<string | null>(null);
+  const [isScanningQR, setIsScanningQR] = React.useState(false);
 
   const loadedSet = React.useMemo(
     () => new Set(loadedShards.map((s) => s.index)),
@@ -202,14 +205,27 @@ export function ShardQuorumPanel({
               disabled={isSubmitting || isDecrypting}
               className="w-full h-10 px-3 rounded bg-background border border-border text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-foreground/50 transition-all"
             />
-            <Button
-              type="submit"
-              disabled={!shardInput.trim() || isSubmitting || isDecrypting}
-              className="shrink-0 h-10 px-4 gap-1.5 font-bold font-mono text-xs bg-foreground text-background hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Shard</span>
-            </Button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsScanningQR(true)}
+                disabled={isSubmitting || isDecrypting}
+                className="h-10 px-3 gap-1.5 font-mono text-xs"
+                title="Scan Shard QR with Camera or Image"
+              >
+                <QrCode className="h-4 w-4" />
+                <span className="hidden sm:inline">Scan QR</span>
+              </Button>
+              <Button
+                type="submit"
+                disabled={!shardInput.trim() || isSubmitting || isDecrypting}
+                className="h-10 px-4 gap-1.5 font-bold font-mono text-xs bg-foreground text-background hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Shard</span>
+              </Button>
+            </div>
           </div>
 
           <AnimatePresence>
@@ -226,6 +242,23 @@ export function ShardQuorumPanel({
             )}
           </AnimatePresence>
         </form>
+
+        {/* QR Scanner Modal */}
+        <QRScannerModal
+          isOpen={isScanningQR}
+          onClose={() => setIsScanningQR(false)}
+          onScanResult={async (scannedText) => {
+            setIsScanningQR(false);
+            try {
+              const res = await onAddShard(scannedText.trim());
+              if (!res.success) {
+                setInputError(res.error || 'Failed to ingest scanned shard.');
+              }
+            } catch (err) {
+              setInputError(err instanceof Error ? err.message : 'Scan error');
+            }
+          }}
+        />
 
         {/* Info Callout */}
         <div className="rounded bg-muted/20 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3">
