@@ -147,7 +147,6 @@ export async function GET(
         views: pasteData.views,
         burnReceipt,
       },
-      },
     };
 
     return NextResponse.json(response, { headers: rl.headers });
