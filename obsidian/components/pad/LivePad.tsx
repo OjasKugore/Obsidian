@@ -51,6 +51,15 @@ export function LivePad({ roomId, rawKey }: LivePadProps) {
   const [copiedLink, setCopiedLink] = React.useState(false);
   const [lockedNotice, setLockedNotice] = React.useState(false);
 
+  const [isHost, setIsHost] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isHostStored = sessionStorage.getItem(`obsidian_pad_host_${roomId}`) === 'true';
+      setIsHost(isHostStored);
+    }
+  }, [roomId]);
+
   const handleRemoteLock = React.useCallback((finalText: string) => {
     setIsLocked(true);
     setLockedNotice(true);
@@ -105,6 +114,7 @@ export function LivePad({ roomId, rawKey }: LivePadProps) {
   };
 
   const handleToggleLock = () => {
+    if (!isHost) return;
     const nextLocked = !isLocked;
     setIsLocked(nextLocked);
     setLockedNotice(nextLocked);
@@ -152,9 +162,15 @@ export function LivePad({ roomId, rawKey }: LivePadProps) {
                 <span className="text-xs font-bold uppercase tracking-tight text-foreground">
                   Room: {roomId.slice(0, 12)}...
                 </span>
-                <Badge variant="outline" className="text-[10px] border-border uppercase">
-                  {isLocalMode ? 'Cross-Tab Relay' : 'Pusher WSS'}
-                </Badge>
+                {isHost ? (
+                  <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 uppercase font-bold">
+                    Host (Owner)
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] border-border uppercase">
+                    Participant
+                  </Badge>
+                )}
                 {isLocked && (
                   <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400 uppercase">
                     Locked (Read-Only)
@@ -201,27 +217,35 @@ export function LivePad({ roomId, rawKey }: LivePadProps) {
               <span>QR</span>
             </Button>
 
-            {/* Lock / Unlock Toggle */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleToggleLock}
-              className={`h-8 text-xs font-mono gap-1.5 border-border ${
-                isLocked ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : ''
-              }`}
-            >
-              {isLocked ? (
-                <>
-                  <Unlock className="h-3.5 w-3.5" />
-                  <span>Unlock Room</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="h-3.5 w-3.5" />
-                  <span>Lock Room</span>
-                </>
-              )}
-            </Button>
+            {/* Lock / Unlock Toggle (Host Only) */}
+            {isHost ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleToggleLock}
+                className={`h-8 text-xs font-mono gap-1.5 border-border ${
+                  isLocked ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : ''
+                }`}
+                title="Only the room host can lock/unlock editing"
+              >
+                {isLocked ? (
+                  <>
+                    <Unlock className="h-3.5 w-3.5" />
+                    <span>Unlock Room</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Lock Room</span>
+                  </>
+                )}
+              </Button>
+            ) : isLocked ? (
+              <div className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] font-mono font-bold uppercase">
+                <Lock className="h-3 w-3" />
+                <span>Locked by Host</span>
+              </div>
+            ) : null}
 
             {/* Snapshot to Encrypted Paste */}
             <Button
@@ -314,18 +338,24 @@ export function LivePad({ roomId, rawKey }: LivePadProps) {
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 shrink-0" />
             <span>
-              <strong>Workspace Locked (Read-Only):</strong> Keystrokes are synchronized and frozen across all open windows.
+              <strong>Workspace Locked by Host (Read-Only):</strong> Keystrokes are frozen across all participants.
             </span>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleToggleLock}
-            className="h-7 text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/20 shrink-0 self-start sm:self-auto gap-1"
-          >
-            <Unlock className="h-3 w-3" />
-            <span>Unlock Workspace</span>
-          </Button>
+          {isHost ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleToggleLock}
+              className="h-7 text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/20 shrink-0 self-start sm:self-auto gap-1"
+            >
+              <Unlock className="h-3 w-3" />
+              <span>Unlock Workspace</span>
+            </Button>
+          ) : (
+            <span className="text-[10px] text-amber-400/80 italic shrink-0">
+              Only the room host can unlock
+            </span>
+          )}
         </motion.div>
       )}
 

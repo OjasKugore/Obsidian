@@ -47,7 +47,12 @@ export default function PadLauncherPage() {
     crypto.getRandomValues(rawKey);
     const keyBase58 = toBase58(rawKey);
 
-    // 3. Route to /pad/[roomId]#[keyBase58]
+    // 3. Mark current user as the Room Host
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`obsidian_pad_host_${roomId}`, 'true');
+    }
+
+    // 4. Route to /pad/[roomId]#[keyBase58]
     router.push(`/pad/${roomId}#${keyBase58}`);
   };
 
