@@ -488,16 +488,16 @@ export function useCollab({
   }, [enabled, pasteId, rawKey, isAsymmetric]);
 
   const sendCollabEvent = useCallback((event: string, payload: unknown) => {
-    let sent = false;
+    // 1. Peer-to-peer client event trigger
     if (channelRef.current) {
       try {
-        sent = channelRef.current.trigger(`client-${event}`, payload);
+        channelRef.current.trigger(`client-${event}`, payload);
       } catch {
-        sent = false;
+        // ignore
       }
     }
-    // If client trigger is disabled on Pusher app, broadcast via authenticated server endpoint
-    if (!sent && pasteId) {
+    // 2. Server broadcast trigger (ensures 100% remote delivery across devices)
+    if (pasteId) {
       fetch('/api/v1/collab/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

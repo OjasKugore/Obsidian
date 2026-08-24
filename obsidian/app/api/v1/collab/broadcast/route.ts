@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pusher } from '@/lib/pusher';
-import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const rl = await checkRateLimit(request);
-  if (!rl.success) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  }
-
   let body: { channel?: string; event?: string; data?: unknown };
   try {
     body = await request.json();
