@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { createBurnReceipt } from '@/lib/crypto/receipt';
 import type { GetPasteResponse } from '@/lib/api/schemas';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ export async function GET(
     const shouldDestruct = found.maxViews !== null && newViews >= found.maxViews;
 
     // ── Atomic burn / N-view self-destruct (requires transaction) ─────────
-    let paste: typeof found & { views: number };
+    let paste: typeof found & { views: number; __destroyed?: boolean; __destroyReason?: string };
     if (found.burnAfterReading || shouldDestruct) {
       // Use transaction with longer timeout for burn-after-reading
       const result = await prisma.$transaction(
@@ -98,7 +99,8 @@ export async function GET(
           const locked = await tx.paste.findUnique({ where: { id } });
           if (!locked) return null;
           await tx.paste.delete({ where: { id } });
-          return { ...locked, views: newViews };
+          const reason = locked.burnAfterReading ? 'BURN_AFTER_READING' : 'MAX_VIEWS_REACHED';
+          return { ...locked, views: newViews, __destroyed: true, __destroyReason: reason };
         },
         { timeout: 15000 }
       );
@@ -118,18 +120,12 @@ export async function GET(
 
     const pasteData = paste;
 
-    if (!pasteData) {
-      return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
-    }
-
-    // Time-locked response (kept for legacy path, shouldn't reach here now)
-    if ('__locked' in pasteData) {
-      return NextResponse.json(
-        {
-          error: 'This paste is time-locked.',
-          timelockedUntil: (pasteData as { timelockedUntil: Date }).timelockedUntil.toISOString(),
-        },
-        { status: 423 }
+    let burnReceipt = null;
+    if (paste && '__destroyed' in paste && paste.__destroyed) {
+      burnReceipt = await createBurnReceipt(
+        id,
+        paste.__destroyReason as 'BURN_AFTER_READING' | 'MAX_VIEWS_REACHED',
+        paste.views
       );
     }
 
@@ -149,6 +145,8 @@ export async function GET(
         shardTotal: pasteData.shardTotal,
         recipientMode: pasteData.recipientMode,
         views: pasteData.views,
+        burnReceipt,
+      },
       },
     };
 
@@ -176,7 +174,7 @@ export async function DELETE(
   try {
     const paste = await prisma.paste.findUnique({
       where: { id },
-      select: { salt: true },
+      select: { salt: true, views: true },
     });
     if (!paste) {
       return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
@@ -189,7 +187,8 @@ export async function DELETE(
     }
 
     await prisma.paste.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const burnReceipt = await createBurnReceipt(id, 'MANUAL_DELETE', paste.views);
+    return NextResponse.json({ success: true, burnReceipt });
   } catch (err) {
     console.error('[DELETE /api/v1/paste/[id]]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

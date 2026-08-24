@@ -2,6 +2,7 @@
  * tests/unit/shamir.test.ts
  * ─────────────────────────────────────────────────────────────────────────────
  * Unit tests for Shamir's Secret Sharing (lib/crypto/shamir.ts)
+ * Includes RSA-OAEP Public Key Shard Wrapping & Unwrapping (Anti-Dealer Backdoor)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -11,7 +12,14 @@ import {
   combineShards,
   parseShard,
   extractShardFromUrl,
+  wrapShardWithRSA,
+  unwrapShardWithRSA,
+  splitAndWrapKey,
 } from '@/lib/crypto/shamir';
+import {
+  generateRSAKeyPair,
+  exportPublicKeyBase64,
+} from '@/lib/crypto/asymmetric';
 import { encrypt, decrypt } from '@/lib/crypto/cipher';
 
 describe('Shamir Secret Sharing (SSS)', () => {
@@ -83,6 +91,7 @@ describe('Shamir Secret Sharing (SSS)', () => {
     expect(parsed?.index).toBe(2);
     expect(parsed?.total).toBe(5);
     expect(parsed?.data).toHaveLength(32);
+    expect(parsed?.isRSAWrapped).toBe(false);
   });
 
   it('should extract shard from full URL and hash fragments', () => {
@@ -110,6 +119,76 @@ describe('Shamir Secret Sharing (SSS)', () => {
     // 4. Decrypt ciphertext with recovered key
     const decrypted = await decrypt(ciphertext, adata, recoveredKey);
     expect(decrypted).toBe(secretMessage);
+  });
+
+  // ── RSA Shard Wrapping Tests ───────────────────────────────────────────────
+
+  it('should wrap and unwrap an individual shard with RSA-OAEP', async () => {
+    const rawKey = new Uint8Array(32);
+    crypto.getRandomValues(rawKey);
+    const shards = splitKey(rawKey, 3, 2);
+
+    const recipientKeyPair = await generateRSAKeyPair();
+    const pubKeyBase64 = await exportPublicKeyBase64(recipientKeyPair.publicKey);
+
+    // Wrap shard 1 for recipient
+    const wrappedShard = await wrapShardWithRSA(shards[0], pubKeyBase64);
+    expect(wrappedShard).toContain('-rsa-');
+
+    const parsedWrapped = parseShard(wrappedShard);
+    expect(parsedWrapped?.isRSAWrapped).toBe(true);
+    expect(parsedWrapped?.index).toBe(1);
+
+    // Unwrap shard with recipient's private key
+    const unwrappedShard = await unwrapShardWithRSA(wrappedShard, recipientKeyPair.privateKey);
+    expect(unwrappedShard).toBe(shards[0]);
+  });
+
+  it('should split secret and wrap shards across multiple distinct RSA recipients', async () => {
+    const rawKey = new Uint8Array(32);
+    crypto.getRandomValues(rawKey);
+
+    // Generate 3 distinct recipient keypairs (Alice, Bob, Charlie)
+    const alice = await generateRSAKeyPair();
+    const bob = await generateRSAKeyPair();
+    const charlie = await generateRSAKeyPair();
+
+    const pubAlice = await exportPublicKeyBase64(alice.publicKey);
+    const pubBob = await exportPublicKeyBase64(bob.publicKey);
+    const pubCharlie = await exportPublicKeyBase64(charlie.publicKey);
+
+    // Split and wrap all 3 shards
+    const wrappedShards = await splitAndWrapKey(rawKey, 3, 2, [pubAlice, pubBob, pubCharlie]);
+    expect(wrappedShards).toHaveLength(3);
+    expect(wrappedShards[0]).toContain('-rsa-');
+    expect(wrappedShards[1]).toContain('-rsa-');
+    expect(wrappedShards[2]).toContain('-rsa-');
+
+    // Trying to combine wrapped shards directly should fail
+    expect(() => combineShards([wrappedShards[0], wrappedShards[1]])).toThrowError(/RSA-wrapped/);
+
+    // Alice and Bob unwrap their respective shards
+    const aliceUnwrapped = await unwrapShardWithRSA(wrappedShards[0], alice.privateKey);
+    const bobUnwrapped = await unwrapShardWithRSA(wrappedShards[1], bob.privateKey);
+
+    // Combining Alice & Bob's unwrapped shards reconstructs the exact master secret!
+    const recoveredKey = combineShards([aliceUnwrapped, bobUnwrapped]);
+    expect(recoveredKey).toEqual(rawKey);
+  });
+
+  it('should fail unwrapping when wrong private key is used', async () => {
+    const rawKey = new Uint8Array(32);
+    crypto.getRandomValues(rawKey);
+    const shards = splitKey(rawKey, 3, 2);
+
+    const alice = await generateRSAKeyPair();
+    const eve = await generateRSAKeyPair();
+    const pubAlice = await exportPublicKeyBase64(alice.publicKey);
+
+    const wrappedForAlice = await wrapShardWithRSA(shards[0], pubAlice);
+
+    // Eve attempts to unwrap Alice's shard with Eve's private key -> rejects
+    await expect(unwrapShardWithRSA(wrappedForAlice, eve.privateKey)).rejects.toThrow();
   });
 
   it('should validate invalid parameters', () => {

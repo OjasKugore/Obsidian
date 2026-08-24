@@ -3,9 +3,14 @@
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
 import { PasteEditor } from '@/components/editor/PasteEditor';
 import { SharePanel } from '@/components/sharing/SharePanel';
+import { CommandPalette } from '@/components/layout/CommandPalette';
+import { TrustVisualizer } from '@/components/crypto/TrustVisualizer';
+import { QRScannerModal } from '@/components/qr/QRScannerModal';
 import { usePasteEncryption } from '@/hooks/usePasteEncryption';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { AuroraBackground } from '@/components/ui/AuroraBackground';
 import { IntroSplash } from '@/components/ui/IntroSplash';
 
@@ -14,6 +19,31 @@ export default function HomePage() {
     usePasteEncryption();
 
   const [splashFinished, setSplashFinished] = React.useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  const [trustVisualizerOpen, setTrustVisualizerOpen] = React.useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = React.useState(false);
+
+  const handleOpenTrustVisualizer = () => {
+    setTrustVisualizerOpen(true);
+    setTimeout(() => {
+      const el = document.getElementById('trust-visualizer-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 60);
+  };
+
+  // Global keyboard shortcuts hook
+  useKeyboard({
+    onOpenCommandPalette: () => setCommandPaletteOpen((prev) => !prev),
+    onEscape: () => {
+      setCommandPaletteOpen(false);
+      setTrustVisualizerOpen(false);
+      setQrScannerOpen(false);
+    },
+  });
 
   return (
     <>
@@ -26,10 +56,35 @@ export default function HomePage() {
       {splashFinished && (
         <AuroraBackground>
           {/* Industrial Top Navbar */}
-          <Header />
+          <Header
+            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+            onOpenTrustVisualizer={handleOpenTrustVisualizer}
+            onOpenQRScanner={() => setQrScannerOpen(true)}
+          />
 
           {/* Main Content Area */}
           <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 sm:py-10 flex flex-col gap-6">
+            {/* Trust Visualizer Expanded Modal if opened */}
+            <AnimatePresence>
+              {trustVisualizerOpen && (
+                <div
+                  onClick={() => setTrustVisualizerOpen(false)}
+                  className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 bg-background/80 backdrop-blur-md overflow-y-auto font-mono"
+                >
+                  <motion.div
+                    id="trust-visualizer-section"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full max-w-5xl my-6 sm:my-10"
+                  >
+                    <TrustVisualizer onClose={() => setTrustVisualizerOpen(false)} />
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+
             {/* Transition container between Editor and SharePanel */}
             <AnimatePresence mode="wait">
               {result ? (
@@ -52,23 +107,22 @@ export default function HomePage() {
             </AnimatePresence>
           </main>
 
-          {/* Industrial Monochrome Footer */}
-          <footer className="w-full border-t border-border py-6 text-xs font-mono text-muted-foreground bg-muted/20 mt-auto">
-            <div className="max-w-6xl mx-auto px-4 sm:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-3">
-                <span className="font-[family-name:var(--font-montserrat)] font-black text-sm tracking-tight text-foreground">OBSIDIAN</span>
-                <span>&bull;</span>
-                <span>© 2026 OBSIDIAN. ENCRYPTED & PERSISTENT.</span>
-              </div>
+          {/* Command Palette (⌘+K) */}
+          <CommandPalette
+            isOpen={commandPaletteOpen}
+            onClose={() => setCommandPaletteOpen(false)}
+            onOpenTrustVisualizer={handleOpenTrustVisualizer}
+            onOpenQRScanner={() => setQrScannerOpen(true)}
+          />
 
-              <nav className="flex items-center gap-6">
-                <span className="hover:text-foreground transition-colors cursor-pointer">Security</span>
-                <span className="hover:text-foreground transition-colors cursor-pointer">Protocol</span>
-                <span className="hover:text-foreground transition-colors cursor-pointer">GitHub</span>
-                <span className="hover:text-foreground transition-colors cursor-pointer">Status</span>
-              </nav>
-            </div>
-          </footer>
+          {/* Camera / File QR Scanner Modal */}
+          <QRScannerModal
+            isOpen={qrScannerOpen}
+            onClose={() => setQrScannerOpen(false)}
+          />
+
+          {/* Universal Footer with active Security, Protocol, and GitHub links */}
+          <Footer onOpenTrustVisualizer={handleOpenTrustVisualizer} />
         </AuroraBackground>
       )}
     </>

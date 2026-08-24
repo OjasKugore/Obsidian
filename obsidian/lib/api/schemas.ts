@@ -157,6 +157,20 @@ export const GetPasteResponseSchema = z.object({
     shardTotal: z.number().int().nullable(),
     recipientMode: z.boolean(),
     views: z.number().int(),
+    burnReceipt: z
+      .object({
+        receiptId: z.string(),
+        pasteId: z.string(),
+        pasteIdHash: z.string(),
+        destroyedAt: z.string(),
+        reason: z.string(),
+        viewsServed: z.number(),
+        signature: z.string(),
+        algorithm: z.string(),
+        version: z.number(),
+      })
+      .optional()
+      .nullable(),
   }),
 });
 

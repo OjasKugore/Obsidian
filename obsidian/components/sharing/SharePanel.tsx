@@ -10,6 +10,7 @@
 
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Copy,
   Check,
@@ -22,6 +23,7 @@ import {
   Key,
   QrCode,
   PlusCircle,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { EncryptionResult } from '@/hooks/usePasteEncryption';
@@ -36,6 +38,8 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
   const [copiedAll, setCopiedAll] = React.useState(false);
   const [tokenCopied, setTokenCopied] = React.useState(false);
   const [showDeleteSection, setShowDeleteSection] = React.useState(false);
+  const [showQR, setShowQR] = React.useState(false);
+  const [selectedShardQR, setSelectedShardQR] = React.useState(0);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isDeleted, setIsDeleted] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
@@ -185,6 +189,11 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-foreground text-xs font-mono font-bold border border-border">
                     #{shard.index}
                   </div>
+                  {shard.shardString.includes('-rsa-') && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-foreground text-background font-bold tracking-tight shrink-0">
+                      RSA-OAEP
+                    </span>
+                  )}
                   <input
                     type="text"
                     readOnly
@@ -309,19 +318,78 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
         )}
 
         {/* QR Code Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3.5 rounded bg-muted/20 border border-border">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded bg-muted border border-border text-foreground">
-              <QrCode className="h-4 w-4" />
+        <div className="flex flex-col gap-3 p-3.5 rounded-xl bg-muted/20 border border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-muted border border-border text-foreground">
+                <QrCode className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider">Mobile &amp; In-Person Sharing</p>
+                <p className="text-[11px] text-muted-foreground">Scan or share this paste directly with mobile camera</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-foreground uppercase tracking-wider">Mobile & In-Person Sharing</p>
-              <p className="text-[11px] text-muted-foreground">Scan or share this paste directly with mobile devices</p>
-            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowQR(!showQR)}
+              className="text-xs font-mono h-7"
+            >
+              {showQR ? 'Hide QR Code' : 'Show QR Code'}
+            </Button>
           </div>
-          <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted border border-border">
-            QR Scanner Ready
-          </span>
+
+          <AnimatePresence>
+            {showQR && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex flex-col items-center gap-3 pt-3 border-t border-border/60"
+              >
+                {/* Shamir Shard Selector if applicable */}
+                {result.isShamir && result.shardUrls && (
+                  <div className="flex flex-wrap items-center justify-center gap-1">
+                    {result.shardUrls.map((s, idx) => (
+                      <button
+                        key={s.index}
+                        type="button"
+                        onClick={() => setSelectedShardQR(idx)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-all ${
+                          selectedShardQR === idx
+                            ? 'bg-foreground text-background font-bold'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Shard #{s.index}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* QR Code SVG */}
+                <div className="p-3.5 rounded-xl bg-white shadow-xl border border-border flex items-center justify-center">
+                  <QRCodeSVG
+                    value={
+                      result.isShamir && result.shardUrls
+                        ? result.shardUrls[selectedShardQR]?.url || result.shareUrl
+                        : result.shareUrl
+                    }
+                    size={180}
+                    level="H"
+                    includeMargin={false}
+                  />
+                </div>
+
+                <p className="text-[10px] font-mono text-muted-foreground text-center max-w-xs">
+                  {result.isShamir
+                    ? `Scan Shard #${selectedShardQR + 1} link directly with mobile device.`
+                    : 'Scan to decrypt this paste directly in your mobile browser.'}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Collapsible Delete Token Section */}

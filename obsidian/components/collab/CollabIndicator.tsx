@@ -15,7 +15,6 @@ import {
   WifiOff,
   ShieldCheck,
   Lock,
-  Sparkles,
   Radio,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -142,7 +141,7 @@ export function CollabIndicator({
       {/* Typing Indicator Bar */}
       {typingUsers.length > 0 && (
         <div className="flex items-center gap-2 pt-1 border-t border-border text-[10px] text-muted-foreground font-mono">
-          <Sparkles className="h-3 w-3 text-foreground shrink-0" />
+          <Radio className="h-3 w-3 text-foreground shrink-0 animate-pulse" />
           <span>
             {typingUsers.length === 1
               ? `${typingUsers[0]} is typing...`
