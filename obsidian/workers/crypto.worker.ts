@@ -1,38 +1,25 @@
 /**
  * workers/crypto.worker.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Web Worker that offloads PBKDF2 key derivation off the main thread.
+ * Web Worker for Off-Main-Thread PBKDF2 Key Derivation.
  *
- * PBKDF2 at 100,000 iterations takes ~300-600ms synchronously, which would
- * freeze the UI. Running it here keeps the main thread responsive.
- *
- * Exposed via Comlink so callers get a typed async interface:
- *
- *   import * as Comlink from 'comlink';
- *   const worker = new Worker(new URL('./crypto.worker.ts', import.meta.url));
- *   const api = Comlink.wrap<CryptoWorkerAPI>(worker);
- *   const key = await api.deriveKey(password, salt, 100_000);
- *
- * Security constraint §2: PBKDF2 runs here, never on the main thread.
+ * Runs PBKDF2-SHA256 (100,000 iterations) in a background Web Worker thread to
+ * prevent blocking or stuttering the main UI rendering thread.
+ * Exposed to main thread via Comlink proxy RPC wrapping.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import * as Comlink from 'comlink';
 import { deriveKey } from '@/lib/crypto/kdf';
 
-/**
- * The API surface exposed to the main thread via Comlink.
- * Keep this minimal — only what the main thread needs to call.
- */
+// ── COMLINK WEB WORKER API INTERFACE ─────────────────────────────────
+
 export type CryptoWorkerAPI = {
   /**
    * Derives an AES-256-GCM CryptoKey from raw password bytes and salt.
    *
-   * NOTE: CryptoKey objects are transferable across the worker boundary in
-   * modern browsers, so this returns the actual CryptoKey (not raw bytes).
-   *
-   * @param password   Raw bytes (random 32-byte entropy for symmetric mode)
-   * @param salt       8-byte random salt (stored in adata[0][1])
+   * @param password   Raw password bytes
+   * @param salt       8-byte random salt
    * @param iterations PBKDF2 iteration count (enforced ≥ 100,000 in kdf.ts)
    */
   deriveKey(
@@ -41,6 +28,8 @@ export type CryptoWorkerAPI = {
     iterations: number
   ): Promise<CryptoKey>;
 };
+
+// ── WORKER EXPOSURE REGISTER ──────────────────────────────────────────
 
 const api: CryptoWorkerAPI = {
   deriveKey,

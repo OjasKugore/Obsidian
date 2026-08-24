@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * hooks/useCollab.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Real-time end-to-end encrypted live collaboration hook.
+ * Synchronizes encrypted keystroke deltas across browser tabs via BroadcastChannel
+ * and across remote peers using Pusher WSS presence channels.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PusherClient, { type PresenceChannel } from 'pusher-js';
 import { encrypt, decrypt } from '@/lib/crypto/cipher';
@@ -59,6 +68,9 @@ export function useCollab({
   onRemoteContent,
   onRemoteLock,
 }: UseCollabOptions) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Connection and peer state
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -68,6 +80,7 @@ export function useCollab({
   const [isLocalMode, setIsLocalMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Instance refs for unique tab identification and persistent connections
   const tabIdRef = useRef<string>('');
   const myPeerRef = useRef<Collaborator | null>(null);
   const onRemoteContentRef = useRef(onRemoteContent);
@@ -85,7 +98,7 @@ export function useCollab({
   const broadcastThrottleRef = useRef<NodeJS.Timeout | null>(null);
   const isBroadcastingRef = useRef(false);
 
-  // ── BroadcastChannel (Seamless Cross-Tab Sync) + Pusher (Remote Sync) ─────────
+  // Setup Effect: Configures local BroadcastChannel and remote Pusher presence room
   useEffect(() => {
     if (!enabled || !pasteId || !rawKey || isAsymmetric) {
       return;
@@ -121,7 +134,6 @@ export function useCollab({
           const msg = event.data;
 
           if (msg.type === 'peer-ping' && msg.senderId !== tabId) {
-            // Respond with our peer info
             bc?.postMessage({
               type: 'peer-pong',
               peer: myPeer,
@@ -191,14 +203,13 @@ export function useCollab({
           }
         };
 
-        // Announce our presence to all existing tabs
         bc.postMessage({ type: 'peer-ping', peer: myPeer, senderId: tabId });
       } catch (err) {
         console.warn('[useCollab] BroadcastChannel init error:', err);
       }
     }
 
-    // 2. Setup Pusher WSS (if valid, non-placeholder credentials configured)
+    // 2. Setup Pusher WSS remote connection
     const rawPusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const isPusherConfigured =
       Boolean(rawPusherKey) &&
@@ -301,6 +312,7 @@ export function useCollab({
             // ignore
           }
         });
+
         channel.bind('client-locked', (data: { senderId: string; finalContent: string }) => {
           if (!data || data.senderId === tabId) return;
           if (!cancelled) {
@@ -309,6 +321,7 @@ export function useCollab({
             if (onRemoteLockRef.current) onRemoteLockRef.current(data.finalContent);
           }
         });
+
         channel.bind('pusher:subscription_error', (err: unknown) => {
           console.warn('[useCollab] Pusher subscription error:', err);
           if (!cancelled) {
@@ -358,7 +371,9 @@ export function useCollab({
     };
   }, [enabled, pasteId, rawKey, isAsymmetric]);
 
-  // ── Broadcast encrypted text updates ──────────────────────────────────────────
+  // ── ACTIONS & CRYPTO LOGIC ──────────────────────────────────────────────
+
+  // Encrypts updated document text and broadcasts delta to connected peers (BroadcastChannel + Pusher WSS)
   const broadcastContent = useCallback(
     async (newContent: string) => {
       setContent(newContent);
@@ -390,7 +405,6 @@ export function useCollab({
             timestamp: Date.now(),
           };
 
-          // 1. Send to local browser tabs via BroadcastChannel
           if (bcRef.current) {
             try {
               bcRef.current.postMessage({
@@ -398,11 +412,10 @@ export function useCollab({
                 ...message,
               });
             } catch {
-              // ignore if channel closed
+              // ignore
             }
           }
 
-          // 2. Send to remote peers via Pusher presence channel
           if (channelRef.current) {
             try {
               channelRef.current.trigger('client-delta', message);
@@ -413,12 +426,12 @@ export function useCollab({
         } catch (encErr) {
           console.error('[useCollab] Failed to encrypt delta:', encErr);
         }
-      }, 80); // 80ms for ultra-responsive sync
+      }, 80);
     },
     [rawKey, formatter, isAsymmetric]
   );
 
-  // ── Broadcast Lock & Finalize event to all peers ──────────────────────────────
+  // Broadcasts lock & session finalization event to all connected peers
   const broadcastLock = useCallback((finalContent: string) => {
     if (bcRef.current) {
       try {
@@ -446,7 +459,7 @@ export function useCollab({
 
   const lastTypingPingRef = useRef(0);
 
-  // ── Broadcast typing ping ─────────────────────────────────────────────────────
+  // Encrypts and broadcasts a real-time typing indicator heartbeat
   const broadcastTyping = useCallback(async () => {
     if (!rawKey || isAsymmetric || !currentUser) return;
 
@@ -492,14 +505,14 @@ export function useCollab({
     }
   }, [rawKey, isAsymmetric, currentUser]);
 
-  // ── Disconnect / Teardown ─────────────────────────────────────────────────────
+  // Disconnects active collaboration channel and resets state
   const disconnect = useCallback(() => {
     if (bcRef.current) {
       try {
         bcRef.current.postMessage({ type: 'peer-leave', senderId: tabIdRef.current });
         bcRef.current.close();
       } catch {
-        // ignore if already closed
+        // ignore
       }
       bcRef.current = null;
     }
@@ -524,6 +537,8 @@ export function useCollab({
     setCollaborators([]);
     setTypingUsers([]);
   }, [pasteId]);
+
+  // ── RETURN ─────────────────────────────────────────────────────────────
 
   return {
     isConnected,

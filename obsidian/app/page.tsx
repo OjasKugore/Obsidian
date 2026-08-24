@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * app/page.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Main Obsidian Application Home Page.
+ * Controls the IntroSplash animation phase, client-side encryption state,
+ * and renders either PasteEditor or SharePanel.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Header } from '@/components/layout/Header';
@@ -10,31 +19,38 @@ import { AuroraBackground } from '@/components/ui/AuroraBackground';
 import { IntroSplash } from '@/components/ui/IntroSplash';
 
 export default function HomePage() {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Encryption execution hook (manages submission state, errors, and output result)
   const { encryptAndSubmit, isLoading, error, result, reset } =
     usePasteEncryption();
 
+  // Intro splash sequence completion flag
   const [splashFinished, setSplashFinished] = React.useState(false);
+
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      {/* Intro Splash: Fullscreen solid white canvas with black lock -> dark inversion -> Obsidian reveal */}
+      {/* Intro Splash Animation (Plays on initial landing) */}
       {!splashFinished && (
         <IntroSplash onComplete={() => setSplashFinished(true)} />
       )}
 
-      {/* Main Workspace: Only rendered after intro splash sequence finishes */}
+      {/* Main Workspace (Revealed after intro splash finishes) */}
       {splashFinished && (
         <AuroraBackground>
-          {/* Industrial Top Navbar */}
+          {/* Top Header Navigation Bar */}
           <Header />
 
-          {/* Main Content Area */}
+          {/* Main Workspace Layout (Editor vs Share Success Panel) */}
           <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 sm:py-10 flex flex-col gap-6">
-            {/* Transition container between Editor and SharePanel */}
             <AnimatePresence mode="wait">
               {result ? (
+                /* Encryption Success Result Panel */
                 <SharePanel key="share" result={result} onReset={reset} />
               ) : (
+                /* Primary Encrypted Paste Creation Editor */
                 <motion.div
                   key="editor-wrap"
                   initial={{ opacity: 0, y: 10 }}
@@ -52,7 +68,7 @@ export default function HomePage() {
             </AnimatePresence>
           </main>
 
-          {/* Industrial Monochrome Footer */}
+          {/* Footer Bar */}
           <footer className="w-full border-t border-border py-6 text-xs font-mono text-muted-foreground bg-muted/20 mt-auto">
             <div className="max-w-6xl mx-auto px-4 sm:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-3">

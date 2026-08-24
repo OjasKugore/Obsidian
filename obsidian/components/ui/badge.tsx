@@ -1,6 +1,19 @@
+/**
+ * components/ui/badge.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Primitive Badge UI Component.
+ *
+ * Provides status badges and tags supporting multiple variants: default,
+ * secondary, destructive, outline, success, warning, and glow.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+
+// ── SETUP ──────────────────────────────────────────────────────────────
+// Class Variance Authority badge style variant definitions
 
 const badgeVariants = cva(
   'inline-flex items-center rounded border px-2 py-0.5 text-xs font-mono transition-colors focus:outline-none',
@@ -33,7 +46,10 @@ export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
+// ── UI COMPONENT ───────────────────────────────────────────────────────
+
 function Badge({ className, variant, ...props }: BadgeProps) {
+  // {/* ── UI ───────────────────────────────────────────────────────────────── */}
   return (
     <div className={cn(badgeVariants({ variant }), className)} {...props} />
   );

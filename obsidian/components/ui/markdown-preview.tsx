@@ -1,3 +1,13 @@
+/**
+ * components/ui/markdown-preview.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Markdown Content Preview Component.
+ *
+ * Renders GitHub Flavored Markdown (GFM) using react-markdown with custom Tailwind
+ * styling for headers, tables, codeblocks, blockquotes, and lists.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 'use client';
 
 import * as React from 'react';
@@ -10,6 +20,8 @@ interface MarkdownPreviewProps {
 }
 
 export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+  // Empty content fallback guard
   if (!content || !content.trim()) {
     return (
       <div className="py-8 text-center text-xs text-muted-foreground italic">
@@ -18,6 +30,7 @@ export function MarkdownPreview({ content, className = '' }: MarkdownPreviewProp
     );
   }
 
+  // {/* ── UI ───────────────────────────────────────────────────────────────── */}
   return (
     <div
       className={`prose prose-invert max-w-none text-foreground font-sans leading-relaxed break-words text-sm ${className}`}

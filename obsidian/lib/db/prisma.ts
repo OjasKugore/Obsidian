@@ -1,18 +1,18 @@
 /**
  * lib/db/prisma.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Prisma 7 client singleton — compatible with both Node.js and Edge Runtime.
+ * Prisma 7 Client Singleton & Neon Serverless PostgreSQL Driver.
  *
- * Prisma 7 requires the Neon adapter to be passed directly to PrismaClient
- * instead of being configured in schema.prisma.
- *
- * The globalThis singleton pattern prevents connection exhaustion during
- * Next.js hot reloads in development.
+ * Configures the `@prisma/adapter-neon` serverless driver and exports a singleton
+ * `prisma` client instance bound to `globalThis` to prevent database connection
+ * pool exhaustion during Next.js development hot-reloads.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
+
+// ── PRISMA CLIENT FACTORY & NEON ADAPTER ────────────────────────────
 
 function createPrismaClient(): PrismaClient {
   const connectionString =
@@ -36,6 +36,8 @@ function createPrismaClient(): PrismaClient {
         : ['error'],
   });
 }
+
+// ── GLOBALTHIS SINGLETON INSTANTIATION ────────────────────────────────
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;

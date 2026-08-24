@@ -1,16 +1,11 @@
 /**
  * app/api/v1/paste/[id]/route.ts
- * GET  /api/v1/paste/[id] — Read a paste (with time-lock check + burn logic)
- * DELETE /api/v1/paste/[id] — Delete a paste (token-validated)
  * ─────────────────────────────────────────────────────────────────────────────
- * Security guarantees:
- *   - Burn-after-reading is ATOMIC: SELECT FOR UPDATE → DELETE → RETURN
- *     This is implemented as a Prisma transaction so no two concurrent reads
- *     can both succeed on a burn-after-reading paste.
- *   - Time-lock: server rejects GET if now() < timelockedUntil
- *   - N-view self-destruct: atomic increment + check inside transaction
- *   - Delete requires valid HMAC-SHA256(pasteId, per-paste-salt) token
- *   - IP is logged as HMAC'd hash only (never raw)
+ * API Route Endpoint Handler.
+ * HTTP Methods:
+ *   - GET    /api/v1/paste/[id] : Read paste with time-lock check & atomic burn-after-reading
+ *   - PUT    /api/v1/paste/[id] : Finalize & update ciphertext from live collab session
+ *   - DELETE /api/v1/paste/[id] : Immediate token-validated paste destruction
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -19,8 +14,9 @@ import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit } from '@/lib/rate-limit';
 import type { GetPasteResponse } from '@/lib/api/schemas';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── HELPER UTILITIES & SECURITY HASHER ───────────────────────────────
 
+/** HMAC-SHA256 hasher for validating delete tokens */
 async function hmacSHA256(message: string, key: string): Promise<string> {
   const encoder = new TextEncoder();
   const cryptoKey = await crypto.subtle.importKey(
@@ -34,18 +30,20 @@ async function hmacSHA256(message: string, key: string): Promise<string> {
   return Buffer.from(sig).toString('hex');
 }
 
+/** Hashes client IP using HMAC-SHA256 for privacy-compliant logging */
 async function hmacIP(rawIP: string): Promise<string> {
   const secret = process.env.IP_HMAC_SECRET ?? 'dev-placeholder';
   return hmacSHA256(rawIP, secret);
 }
 
+/** Extracts client IP address from request headers */
 function getClientIP(request: NextRequest): string {
   const xff = request.headers.get('x-forwarded-for');
   if (xff) return xff.split(',')[0].trim();
   return request.headers.get('x-real-ip') ?? '127.0.0.1';
 }
 
-// ── GET ───────────────────────────────────────────────────────────────────────
+// ── GET /api/v1/paste/[id] ───────────────────────────────────────────
 
 export async function GET(
   request: NextRequest,
@@ -53,7 +51,7 @@ export async function GET(
 ): Promise<NextResponse> {
   const { id } = await params;
 
-  // Rate limit reads too (prevents enumeration attacks)
+  // Step 1: Rate limit checks
   const rl = await checkRateLimit(request);
   if (!rl.success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
@@ -62,36 +60,33 @@ export async function GET(
   const ipHash = await hmacIP(getClientIP(request));
 
   try {
-    // ── Atomic burn-after-reading + N-view self-destruct ──────────────────
+    // Step 2: Atomic Prisma transaction (time-locks, view counters, burn-after-reading)
     const paste = await prisma.$transaction(async (tx) => {
-      // Lock the row for the duration of this transaction
       const found = await tx.paste.findUnique({ where: { id } });
       if (!found) return null;
 
-      // Check expiry
+      // Check expiry timer
       if (found.expiresAt && found.expiresAt < new Date()) {
         await tx.paste.delete({ where: { id } });
         return null;
       }
 
-      // Time-lock check: reject if the unlock time hasn't arrived yet
+      // Check time-lock status
       if (found.timelockedUntil && found.timelockedUntil > new Date()) {
-        // Return a special sentinel instead of null
         return { __locked: true, timelockedUntil: found.timelockedUntil } as const;
       }
 
-      // N-view self-destruct
       const newViews = found.views + 1;
       const shouldDestruct =
         found.maxViews !== null && newViews >= found.maxViews;
 
-      // Burn-after-reading: delete and return the data in one shot
+      // Burn-after-reading: delete and return data atomically
       if (found.burnAfterReading || shouldDestruct) {
         await tx.paste.delete({ where: { id } });
         return { ...found, views: newViews };
       }
 
-      // Normal paste: increment view count + log
+      // Standard view count increment
       const updated = await tx.paste.update({
         where: { id },
         data: { views: { increment: 1 } },
@@ -106,17 +101,18 @@ export async function GET(
       return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
     }
 
-    // Time-locked response
+    // Step 3: Handle time-locked status response
     if ('__locked' in paste) {
       return NextResponse.json(
         {
           error: 'This paste is time-locked.',
           timelockedUntil: (paste as { timelockedUntil: Date }).timelockedUntil.toISOString(),
         },
-        { status: 423 } // 423 Locked
+        { status: 423 }
       );
     }
 
+    // Step 4: Construct GetPasteResponse payload
     const response: GetPasteResponse = {
       v: 2,
       ct: paste.ciphertext,
@@ -143,7 +139,7 @@ export async function GET(
   }
 }
 
-// ── DELETE ────────────────────────────────────────────────────────────────────
+// ── DELETE /api/v1/paste/[id] ────────────────────────────────────────
 
 export async function DELETE(
   request: NextRequest,
@@ -151,13 +147,25 @@ export async function DELETE(
 ): Promise<NextResponse> {
   const { id } = await params;
 
+  // Step 1: Parse deleteToken parameter or JSON body
   const { searchParams } = new URL(request.url);
-  const deleteToken = searchParams.get('deleteToken');
+  let deleteToken = searchParams.get('deleteToken');
+
+  if (!deleteToken) {
+    try {
+      const body = await request.json();
+      deleteToken = body.deleteToken;
+    } catch {
+      // ignore JSON parse error if body empty
+    }
+  }
+
   if (!deleteToken) {
     return NextResponse.json({ error: 'deleteToken is required' }, { status: 400 });
   }
 
   try {
+    // Step 2: Fetch salt from database
     const paste = await prisma.paste.findUnique({
       where: { id },
       select: { salt: true },
@@ -166,12 +174,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
     }
 
-    // Validate delete token: HMAC-SHA256(pasteId, per-paste-salt)
+    // Step 3: Validate HMAC-SHA256 deletion token
     const expectedToken = await hmacSHA256(id, paste.salt);
     if (deleteToken !== expectedToken) {
       return NextResponse.json({ error: 'Invalid delete token' }, { status: 403 });
     }
 
+    // Step 4: Destroy paste record in database
     await prisma.paste.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -180,7 +189,7 @@ export async function DELETE(
   }
 }
 
-// ── PUT (Finalize & Update Collaborative Encrypted Paste) ────────────────────
+// ── PUT /api/v1/paste/[id] ───────────────────────────────────────────
 
 export async function PUT(
   request: NextRequest,
@@ -188,11 +197,13 @@ export async function PUT(
 ): Promise<NextResponse> {
   const { id } = await params;
 
+  // Step 1: Rate limit check
   const rl = await checkRateLimit(request);
   if (!rl.success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
+  // Step 2: Body parsing & schema validation
   let body: unknown;
   try {
     body = await request.json();
@@ -209,6 +220,7 @@ export async function PUT(
     );
   }
 
+  // Step 3: Update ciphertext and adata in database
   try {
     const existing = await prisma.paste.findUnique({
       where: { id },

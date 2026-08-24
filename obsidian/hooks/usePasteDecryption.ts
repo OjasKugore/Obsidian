@@ -1,5 +1,15 @@
 'use client';
 
+/**
+ * hooks/usePasteDecryption.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Custom React hook for client-side paste decryption.
+ * Extracts decryption key from URL hash fragment (#), retrieves ciphertext from API,
+ * supports Shamir Secret Sharing reconstruction, RSA-OAEP asymmetric unwrapping,
+ * and handles burn-after-reading / time-lock states.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { decrypt, fromBase58 } from '@/lib/crypto/cipher';
 import {
@@ -35,10 +45,18 @@ export interface DecryptionState {
 }
 
 export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
+  // ── STATE ──────────────────────────────────────────────────────────────
+
+  // Ref tracking whether initial fetch execution has started
   const fetchedRef = useRef(false);
+  
+  // Ref holding fetched paste response payload from backend
   const fetchedPasteDataRef = useRef<GetPasteResponse | null>(null);
+  
+  // Ref map storing collected Shamir shards in memory (shardIndex -> shardString)
   const shardMapRef = useRef<Map<number, string>>(new Map());
 
+  // Main decryption hook state
   const [state, setState] = useState<DecryptionState>({
     plaintext: null,
     formatter: 'plaintext',
@@ -59,6 +77,9 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     isAwaitingPrivateKey: false,
   });
 
+  // ── ACTIONS & CRYPTO LOGIC ──────────────────────────────────────────────
+
+  // Decrypts ciphertext with provided raw AES key bytes using SubtleCrypto
   const decryptWithKey = useCallback(
     async (
       key: Uint8Array,
@@ -66,10 +87,8 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     ) => {
       setState((prev) => ({ ...prev, isDecrypting: true, error: null }));
       try {
-        console.log('[decryptWithKey] Decrypting ciphertext with key bytes:', key.length);
         const decrypted = await decrypt(data.ct, data.adata, key);
         const formatter = data.adata[1] || 'plaintext';
-        console.log('[decryptWithKey] SUCCESS! Plaintext length:', decrypted.length);
 
         setState((prev) => ({
           ...prev,
@@ -103,6 +122,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     []
   );
 
+  // Combines accumulated Shamir shards and attempts master key reconstruction if threshold is met
   const attemptShamirReconstruction = useCallback(
     async (data: GetPasteResponse, threshold: number) => {
       const shards = Array.from(shardMapRef.current.values());
@@ -147,6 +167,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     [decryptWithKey]
   );
 
+  // Main pipeline: parses URL hash fragment, fetches ciphertext from API, and routes to appropriate decryption handler
   const fetchAndDecrypt = useCallback(async () => {
     if (!pasteId) return;
 
@@ -157,7 +178,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       isBurned: false,
     }));
 
-    // 1. Extract key from URL hash (#fragment)
+    // Step 1: Extract key fragment from URL location hash (#key)
     const hash = typeof window !== 'undefined' ? window.location.hash : '';
     const keyFragment = hash.startsWith('#') ? hash.slice(1) : hash;
 
@@ -172,7 +193,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     }
 
     try {
-      // 2. Fetch encrypted ciphertext & adata from server
+      // Step 2: Fetch ciphertext & metadata from backend API endpoint
       const response = await fetch(`/api/v1/paste/${pasteId}`);
 
       if (response.status === 404) {
@@ -209,7 +230,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       const data: GetPasteResponse = await response.json();
       fetchedPasteDataRef.current = data;
 
-      // 3. Detect if this is a Shamir SSS shard
+      // Step 3: Check if URL key fragment is a Shamir SSS shard
       const parsedInitialShard = parseShard(keyFragment);
 
       if (parsedInitialShard || data.meta.shard) {
@@ -237,7 +258,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
         return;
       }
 
-      // 4. Asymmetric RSA-OAEP mode: #asym sentinel → show private key prompt
+      // Step 4: Check if asymmetric RSA-OAEP mode is active (#asym tag)
       if (keyFragment === 'asym' || data.meta.recipientMode) {
         setState((prev) => ({
           ...prev,
@@ -250,7 +271,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
         return;
       }
 
-      // 5. Standard symmetric decryption
+      // Step 5: Standard symmetric AES-256-GCM decryption
       setState((prev) => ({ ...prev, isLoading: false, isDecrypting: true }));
 
       let rawKey: Uint8Array;
@@ -275,9 +296,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     }
   }, [pasteId, decryptWithKey, attemptShamirReconstruction]);
 
-  /**
-   * Adds an additional shard token or URL to the quorum pool and triggers reconstruction if threshold is met.
-   */
+  // Adds an additional shard token or URL to the quorum pool and triggers reconstruction if threshold is met
   const addShard = useCallback(
     async (input: string): Promise<{ success: boolean; error?: string }> => {
       const shardStr = extractShardFromUrl(input) || input.trim();
@@ -315,14 +334,10 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     [attemptShamirReconstruction]
   );
 
-  /**
-   * Called from PrivateKeyUnlock when the user provides their RSA private key.
-   * Unwraps the AES key from adata[4] and decrypts the paste.
-   */
+  // Unwraps AES key from adata[4] using user's RSA private key and decrypts paste
   const decryptWithPrivateKey = useCallback(
     async (privateKey: CryptoKey) => {
       const data = fetchedPasteDataRef.current;
-      console.log('[decryptWithPrivateKey] Unlocking with privateKey. Fetched paste data:', data);
       if (!data) {
         setState((prev) => ({
           ...prev,
@@ -332,7 +347,6 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       }
 
       const wrappedKeyBase64 = data.adata[4];
-      console.log('[decryptWithPrivateKey] adata[4] (wrappedKeyBase64):', wrappedKeyBase64 ? wrappedKeyBase64.slice(0, 30) + '...' : undefined);
       if (!wrappedKeyBase64 || typeof wrappedKeyBase64 !== 'string') {
         setState((prev) => ({
           ...prev,
@@ -349,9 +363,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
       }));
 
       try {
-        console.log('[decryptWithPrivateKey] Unwrapping AES key with RSA private key...');
         const rawAESKey = await unwrapAESKey(wrappedKeyBase64, privateKey);
-        console.log('[decryptWithPrivateKey] AES key unwrapped successfully! Raw key bytes:', rawAESKey.length);
         await decryptWithKey(rawAESKey, data);
       } catch (err: unknown) {
         console.error('[decryptWithPrivateKey ERROR]', err);
@@ -364,7 +376,7 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
         setState((prev) => ({
           ...prev,
           isDecrypting: false,
-          isAwaitingPrivateKey: true, // re-show the prompt
+          isAwaitingPrivateKey: true,
           error: message,
         }));
       }
@@ -372,12 +384,15 @@ export function usePasteDecryption(pasteId: string, autoFetch: boolean = true) {
     [decryptWithKey]
   );
 
+  // Auto-fetch effect on component mount
   useEffect(() => {
     if (autoFetch && pasteId && !fetchedRef.current) {
       fetchedRef.current = true;
       fetchAndDecrypt();
     }
   }, [autoFetch, pasteId, fetchAndDecrypt]);
+
+  // ── RETURN ─────────────────────────────────────────────────────────────
 
   return {
     ...state,

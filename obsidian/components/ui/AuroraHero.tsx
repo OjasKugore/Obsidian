@@ -1,3 +1,13 @@
+/**
+ * components/ui/AuroraHero.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Aurora Hero Banner Component.
+ *
+ * Renders an animated SVG fluted glass displacement filter and rainbow spectrum
+ * gradient overlay for the landing page header banner.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 'use client';
 
 import React from 'react';
@@ -15,6 +25,7 @@ export function AuroraHero({
   className,
   ...props
 }: AuroraHeroProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
   // Safely URL-encoded SVG string for the fluted glass effect
   const filterImageHref =
     'data:image/svg+xml,' +
@@ -43,6 +54,7 @@ export function AuroraHero({
     </svg>
   `);
 
+  // {/* ── UI ───────────────────────────────────────────────────────────────── */}
   return (
     <div
       className={cn(
@@ -152,8 +164,10 @@ export function AuroraHero({
         }
       `}</style>
 
+      {/* Aurora Rainbow Stripes Background */}
       <div className="aurora-hero-bg" aria-hidden="true" />
 
+      {/* Title & Subtitle Container */}
       <div className="aurora-content">
         <h1 className="h1-scalingSize" data-text={title}>
           {title}
@@ -165,6 +179,7 @@ export function AuroraHero({
         )}
       </div>
 
+      {/* SVG Fluted Glass Displacement Filter Definition */}
       <svg
         version="1.1"
         xmlns="http://www.w3.org/2000/svg"

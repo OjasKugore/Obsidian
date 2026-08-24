@@ -1,3 +1,13 @@
+/**
+ * components/ui/AuroraBackground.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Dark Matte Canvas Container Component.
+ *
+ * Provides full-bleed layout structure with subtle tactile radial micro-dot
+ * texture backgrounds and smooth theme transition colors.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 'use client';
 
 import * as React from 'react';
@@ -12,6 +22,10 @@ export function AuroraBackground({
   className,
   ...props
 }: AuroraBackgroundProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+  // Props destructuring and full-bleed viewport bounds initialization
+
+  // {/* ── UI ───────────────────────────────────────────────────────────────── */}
   return (
     <div
       className={cn(
@@ -31,7 +45,7 @@ export function AuroraBackground({
         />
       </div>
 
-      {/* Foreground Content */}
+      {/* Foreground Content Container */}
       <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
     </div>
   );

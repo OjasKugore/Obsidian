@@ -12,8 +12,9 @@
  */
 
 import { toBase64, fromBase64 } from './encoding';
+import { assertSubtleCrypto } from './kdf';
 
-// ── Algorithm descriptors ──────────────────────────────────────────────────────
+// ── ALGORITHM CONSTANTS & CONFIG ───────────────────────────────────────
 
 const RSA_OAEP_KEYGEN: RsaHashedKeyGenParams = {
   name: 'RSA-OAEP',
@@ -31,7 +32,7 @@ const RSA_OAEP_ALG: RsaOaepParams = { name: 'RSA-OAEP' };
 
 const AES_GCM_256: AesKeyAlgorithm = { name: 'AES-GCM', length: 256 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── HELPER FUNCTIONS ───────────────────────────────────────────────────
 
 /** Ensures a Uint8Array is backed by a plain ArrayBuffer (required by SubtleCrypto) */
 function ensureBuffer(u: Uint8Array): ArrayBuffer {
@@ -41,7 +42,7 @@ function ensureBuffer(u: Uint8Array): ArrayBuffer {
   return u.slice().buffer;
 }
 
-// ── Key Generation ────────────────────────────────────────────────────────────
+// ── KEY GENERATION ─────────────────────────────────────────────────────
 
 /**
  * Generates a fresh RSA-2048-OAEP keypair.
@@ -49,6 +50,7 @@ function ensureBuffer(u: Uint8Array): ArrayBuffer {
  *   - privateKey: extractable (needed for IndexedDB round-trip)
  */
 export async function generateRSAKeyPair(): Promise<CryptoKeyPair> {
+  assertSubtleCrypto();
   return crypto.subtle.generateKey(
     RSA_OAEP_KEYGEN,
     true, // extractable — needed for IndexedDB structured clone and SPKI export
@@ -56,12 +58,13 @@ export async function generateRSAKeyPair(): Promise<CryptoKeyPair> {
   );
 }
 
-// ── Export / Import ───────────────────────────────────────────────────────────
+// ── IMPORT & EXPORT UTILITIES ──────────────────────────────────────────
 
 /**
  * Exports an RSA public key to a base64-encoded SPKI string.
  */
 export async function exportPublicKeyBase64(publicKey: CryptoKey): Promise<string> {
+  assertSubtleCrypto();
   const spki = await crypto.subtle.exportKey('spki', publicKey);
   return toBase64(new Uint8Array(spki));
 }
@@ -70,6 +73,7 @@ export async function exportPublicKeyBase64(publicKey: CryptoKey): Promise<strin
  * Exports an RSA private key to a base64-encoded PKCS8 string.
  */
 export async function exportPrivateKeyBase64(privateKey: CryptoKey): Promise<string> {
+  assertSubtleCrypto();
   const pkcs8 = await crypto.subtle.exportKey('pkcs8', privateKey);
   return toBase64(new Uint8Array(pkcs8));
 }
@@ -78,6 +82,7 @@ export async function exportPrivateKeyBase64(privateKey: CryptoKey): Promise<str
  * Imports a base64 SPKI public key for use in wrapKey operations.
  */
 export async function importRSAPublicKey(base64: string): Promise<CryptoKey> {
+  assertSubtleCrypto();
   const spki = fromBase64(base64);
   return crypto.subtle.importKey(
     'spki',
@@ -92,6 +97,7 @@ export async function importRSAPublicKey(base64: string): Promise<CryptoKey> {
  * Imports a base64 PKCS8 private key for use in unwrapKey operations.
  */
 export async function importRSAPrivateKey(base64: string): Promise<CryptoKey> {
+  assertSubtleCrypto();
   const pkcs8 = fromBase64(base64);
   return crypto.subtle.importKey(
     'pkcs8',
@@ -102,13 +108,14 @@ export async function importRSAPrivateKey(base64: string): Promise<CryptoKey> {
   );
 }
 
-// ── Fingerprint ───────────────────────────────────────────────────────────────
+// ── FINGERPRINT GENERATION ─────────────────────────────────────────────
 
 /**
  * Returns the first 8 bytes of SHA-256(SPKI) as 16 lowercase hex chars.
  * Example: "a3f8b2c14e7d9012"
  */
 export async function getKeyFingerprint(publicKey: CryptoKey): Promise<string> {
+  assertSubtleCrypto();
   const spki = await crypto.subtle.exportKey('spki', publicKey);
   const digest = await crypto.subtle.digest('SHA-256', spki);
   return Array.from(new Uint8Array(digest).slice(0, 8))
@@ -116,14 +123,12 @@ export async function getKeyFingerprint(publicKey: CryptoKey): Promise<string> {
     .join('');
 }
 
-// ── Wrap / Unwrap ─────────────────────────────────────────────────────────────
+// ── KEY WRAPPING & UNWRAPPING ──────────────────────────────────────────
 
 /**
  * Wraps a raw 32-byte AES-256 key with the recipient's RSA-2048 public key.
  *
  * Flow: rawAESKey → importKey('raw') → wrapKey('raw', rsaPublicKey) → base64
- *
- * The resulting base64 string is stored in `adata[4]` on the server.
  *
  * @param rawAESKey     32 raw bytes of the AES-256 key (from cipher.ts)
  * @param rsaPublicKey  Recipient's imported CryptoKey (wrapKey usage)
@@ -133,20 +138,20 @@ export async function wrapAESKey(
   rawAESKey: Uint8Array,
   rsaPublicKey: CryptoKey
 ): Promise<string> {
-  // Import the raw key as extractable AES-GCM so wrapKey can read it
+  assertSubtleCrypto();
   const aesKey = await crypto.subtle.importKey(
     'raw',
     ensureBuffer(rawAESKey),
     AES_GCM_256,
-    true, // extractable — required for wrapKey to work
+    true,
     ['encrypt', 'decrypt']
   );
 
   const wrappedBuffer = await crypto.subtle.wrapKey(
-    'raw',        // format of the key being wrapped
-    aesKey,       // the AES-256 key to wrap
-    rsaPublicKey, // wrapping key (RSA-OAEP public)
-    RSA_OAEP_ALG  // wrapping algorithm
+    'raw',
+    aesKey,
+    rsaPublicKey,
+    RSA_OAEP_ALG
   );
 
   return toBase64(new Uint8Array(wrappedBuffer));
@@ -164,15 +169,16 @@ export async function unwrapAESKey(
   wrappedKeyBase64: string,
   rsaPrivateKey: CryptoKey
 ): Promise<Uint8Array> {
+  assertSubtleCrypto();
   const wrappedBytes = fromBase64(wrappedKeyBase64);
 
   const aesKey = await crypto.subtle.unwrapKey(
-    'raw',              // format of the wrapped key
-    ensureBuffer(wrappedBytes), // the wrapped key bytes
-    rsaPrivateKey,      // unwrapping key (RSA-OAEP private)
-    RSA_OAEP_ALG,       // unwrapping algorithm
-    AES_GCM_256,        // resulting key algorithm
-    true,               // extractable (so we can export raw bytes)
+    'raw',
+    ensureBuffer(wrappedBytes),
+    rsaPrivateKey,
+    RSA_OAEP_ALG,
+    AES_GCM_256,
+    true,
     ['encrypt', 'decrypt'] as KeyUsage[]
   );
 

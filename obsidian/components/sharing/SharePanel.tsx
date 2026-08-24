@@ -3,8 +3,9 @@
 /**
  * components/sharing/SharePanel.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Success panel shown after client-side encryption.
- * Strict monochrome styling matching Obsidian design standards.
+ * Success panel displayed after client-side encryption.
+ * Renders shareable links, Shamir threshold shards, QR code indicator,
+ * and emergency paste destruction tools.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -32,14 +33,32 @@ interface SharePanelProps {
 }
 
 export function SharePanel({ result, onReset }: SharePanelProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Tracks index of recently copied link/shard button for feedback animations
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+  
+  // Tracks copy state when copying all Shamir shards at once
   const [copiedAll, setCopiedAll] = React.useState(false);
+  
+  // Tracks copy feedback state for the secret deletion token
   const [tokenCopied, setTokenCopied] = React.useState(false);
+  
+  // Controls visibility of the collapsible immediate paste destruction panel
   const [showDeleteSection, setShowDeleteSection] = React.useState(false);
+  
+  // Destruction API call state (loading status, completion flag, and error message)
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isDeleted, setIsDeleted] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
+  // Helper mode flags (identifies if paste used Shamir multi-sharing or RSA asymmetric key sealing)
+  const isShamir = result.isShamir && result.shardUrls && result.shardUrls.length > 0;
+  const isAsymmetric = result.isAsymmetric === true;
+
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Copies text (URL or token) to clipboard and shows brief success indicator
   const copyToClipboard = async (text: string, index: number | 'token') => {
     try {
       await navigator.clipboard.writeText(text);
@@ -51,10 +70,11 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
         setTimeout(() => setCopiedIndex(null), 2000);
       }
     } catch {
-      // Fallback
+      // Fallback if clipboard API is restricted
     }
   };
 
+  // Concatenates all Shamir shard URLs into a single multi-line string and copies to clipboard
   const handleCopyAllShards = async () => {
     if (!result.shardUrls) return;
     try {
@@ -69,6 +89,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
     }
   };
 
+  // Calls the server DELETE API endpoint using deleteToken to immediately destroy paste
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to permanently delete this paste immediately?')) {
       return;
@@ -93,8 +114,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
     }
   };
 
-  const isShamir = result.isShamir && result.shardUrls && result.shardUrls.length > 0;
-  const isAsymmetric = result.isAsymmetric === true;
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <motion.div
@@ -104,9 +124,9 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="w-full max-w-3xl mx-auto flex flex-col gap-6 font-mono"
     >
-      {/* Main Success Card */}
+      {/* Main Success Card Container */}
       <div className="rounded-lg border border-border bg-card p-6 sm:p-8 flex flex-col gap-6 shadow-xl relative overflow-hidden">
-        {/* Card Header */}
+        {/* Card Header & Title Banner */}
         <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded bg-muted border border-border text-foreground">
@@ -141,6 +161,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
             </div>
           </div>
 
+          {/* New Paste Reset Button */}
           <Button
             variant="outline"
             size="sm"
@@ -152,9 +173,9 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
           </Button>
         </div>
 
-        {/* ── Link Display Section ────────────────────────────────────────── */}
+        {/* Shareable Link Display Section */}
         {isShamir ? (
-          // ── Multi-Shard SSS Display ──
+          /* Multi-Shard SSS Display (Renders list of unique shard links) */
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -176,6 +197,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
               </Button>
             </div>
 
+            {/* Shards List */}
             <div className="flex flex-col gap-2">
               {result.shardUrls?.map((shard, idx) => (
                 <div
@@ -224,6 +246,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
               ))}
             </div>
 
+            {/* Shamir Secret Sharing Explanation Note */}
             <div className="rounded bg-muted/30 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3">
               <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
                 <Layers className="h-4 w-4" />
@@ -237,7 +260,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
             </div>
           </div>
         ) : (
-          // ── Single URL Display ──
+          /* Single URL Display Box */
           <div className="flex flex-col gap-3">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Shareable Link
@@ -277,6 +300,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
               </a>
             </div>
 
+            {/* Architecture Explanation Card */}
             {isAsymmetric ? (
               <div className="rounded bg-muted/30 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3 mt-1">
                 <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
@@ -308,7 +332,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
           </div>
         )}
 
-        {/* QR Code Section */}
+        {/* Mobile & In-Person QR Code Section */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3.5 rounded bg-muted/20 border border-border">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded bg-muted border border-border text-foreground">
@@ -324,7 +348,7 @@ export function SharePanel({ result, onReset }: SharePanelProps) {
           </span>
         </div>
 
-        {/* Collapsible Delete Token Section */}
+        {/* Collapsible Delete Token & Immediate Destruction Section */}
         <div className="border-t border-border pt-4 flex flex-col gap-3">
           <button
             type="button"

@@ -1,26 +1,18 @@
 /**
  * lib/rate-limit.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Upstash Redis sliding-window rate limiter.
+ * Upstash Redis Sliding-Window Rate Limiter.
  *
- * Policy: 10 requests per 10 seconds per HMAC'd IP address.
- * The IP is never stored raw — it is HMAC-SHA256'd with IP_HMAC_SECRET
- * before being used as the rate-limit key.
- *
- * Usage in an API route:
- *   import { checkRateLimit } from '@/lib/rate-limit';
- *
- *   const result = await checkRateLimit(request);
- *   if (!result.success) {
- *     return Response.json({ error: 'Too many requests' }, { status: 429 });
- *   }
+ * Policy: 10 requests per 10 seconds per HMAC-SHA256 hashed IP address.
+ * Raw IP addresses are never logged or stored in Redis — only an HMAC-SHA256 hash
+ * computed with IP_HMAC_SECRET is used as the rate-limit tracking key.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-// ── Redis client singleton ────────────────────────────────────────────────────
+// ── REDIS CLIENT & SLIDING WINDOW LIMITER ──────────────────────────────
 
 const hasUpstash = Boolean(
   process.env.UPSTASH_REDIS_REST_URL &&
@@ -35,8 +27,6 @@ const redis = hasUpstash
     })
   : null;
 
-// ── Rate limiter: 10 requests / 10 seconds sliding window ────────────────────
-
 const ratelimit = redis
   ? new Ratelimit({
       redis,
@@ -46,16 +36,15 @@ const ratelimit = redis
     })
   : null;
 
-// ── IP HMAC helper ────────────────────────────────────────────────────────────
+// ── ANONYMIZED IP HASHER & PARSER HELPERS ──────────────────────────────
 
 /**
- * Returns an HMAC-SHA256 of the raw IP address using IP_HMAC_SECRET.
- * This means we never store or log the raw IP — only a one-way hash.
+ * Returns an HMAC-SHA256 hash of the raw IP address using IP_HMAC_SECRET.
+ * Ensures IP addresses are never logged or stored in cleartext.
  */
 async function hmacIP(rawIP: string): Promise<string> {
   const secret = process.env.IP_HMAC_SECRET;
   if (!secret) {
-    // In dev without env vars, fall back to a hash of the IP directly
     const encoder = new TextEncoder();
     const data = encoder.encode(rawIP);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -78,16 +67,14 @@ async function hmacIP(rawIP: string): Promise<string> {
   return Buffer.from(signature).toString('hex').slice(0, 32);
 }
 
-// ── Extracts the real client IP from a Next.js request ───────────────────────
-
+/** Extracts real client IP address from Next.js request headers */
 function getClientIP(request: Request): string {
-  // Vercel injects X-Forwarded-For; fall back to a placeholder in local dev
   const xff = request.headers.get('x-forwarded-for');
   if (xff) return xff.split(',')[0].trim();
   return request.headers.get('x-real-ip') ?? '127.0.0.1';
 }
 
-// ── Public interface ──────────────────────────────────────────────────────────
+// ── RATE LIMIT CHECKER API ─────────────────────────────────────────────
 
 export interface RateLimitResult {
   success: boolean;
@@ -100,8 +87,7 @@ export interface RateLimitResult {
 }
 
 /**
- * Checks the rate limit for the given request.
- * Returns a result object; callers decide whether to return 429.
+ * Evaluates the rate limit for an incoming API request against Upstash Redis.
  */
 export async function checkRateLimit(
   request: Request

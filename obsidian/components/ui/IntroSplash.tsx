@@ -4,9 +4,9 @@
  * components/ui/IntroSplash.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Complete, isolated fullscreen lock screen intro animation:
- * 1. Initial screen is 100% solid pure white (#ffffff) with large black open lock.
+ * 1. Initial screen is solid white with open lock vector.
  * 2. Lock shackle snaps down into locked position with spring physics.
- * 3. Canvas and lock smoothly invert colors (dark #09090b, white lock).
+ * 3. Canvas and lock smoothly invert colors to charcoal/slate.
  * 4. "OBSIDIAN" typography fades in smoothly below the lock.
  * 5. Overlay smoothly fades out and transitions into the workspace.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -20,12 +20,16 @@ interface IntroSplashProps {
 }
 
 export function IntroSplash({ onComplete }: IntroSplashProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Animation timeline state machine ('enter' -> 'lock' -> 'invert' -> 'text' -> 'exit' -> 'done')
   const [stage, setStage] = React.useState<
     'enter' | 'lock' | 'invert' | 'text' | 'exit' | 'done'
   >('enter');
 
+  // Multi-phase timer sequence driving splash animation state transitions
   React.useEffect(() => {
-    // Lock scrolling on document body during intro
+    // Lock scrolling on document body during intro animation
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -49,12 +53,15 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
     };
   }, [onComplete]);
 
+  // Computed state flags for animation transitions
   if (stage === 'done') return null;
 
   const isInverted = stage === 'invert' || stage === 'text' || stage === 'exit';
   const isLocked = stage !== 'enter';
   const showText = stage === 'text' || stage === 'exit';
   const isExiting = stage === 'exit';
+
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <AnimatePresence mode="wait">
@@ -71,7 +78,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
           }}
         >
           <div className="flex flex-col items-center justify-center gap-7">
-            {/* Padlock Graphic - Large, Sharp & Modern Vector */}
+            {/* Padlock Vector Graphic (Snapping Shackle & Color Inversion) */}
             <motion.div
               initial={{ opacity: 0, scale: 0.88, y: 8 }}
               animate={{
@@ -94,7 +101,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
                 xmlns="http://www.w3.org/2000/svg"
                 className="overflow-visible drop-shadow-sm"
               >
-                {/* Shackle: starts open/raised, then snaps down into locked position */}
+                {/* Shackle Path (Snaps down on 'lock' stage) */}
                 <motion.path
                   d="M 6.8 11.5 V 7 C 6.8 4.128 9.128 1.8 12 1.8 C 14.872 1.8 17.2 4.128 17.2 7 V 11.5"
                   stroke={isInverted ? '#FFFFF0' : '#36454F'}
@@ -160,7 +167,7 @@ export function IntroSplash({ onComplete }: IntroSplashProps) {
               </svg>
             </motion.div>
 
-            {/* "OBSIDIAN" Typography - Bold Modern Montserrat in Warm Ivory */}
+            {/* "OBSIDIAN" Brand Typography Fade-In */}
             <div className="h-12 flex items-center justify-center overflow-hidden">
               <motion.span
                 initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}

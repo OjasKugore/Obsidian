@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * components/layout/Header.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Main Navigation Header Component.
+ * Contains brand logo, quick navigation links, identity key manager modal,
+ * dark/light theme switcher, and "New Paste" call-to-action button.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,26 +18,40 @@ import { Button } from '@/components/ui/button';
 import { IdentityPanel } from '@/components/header/IdentityPanel';
 
 export function Header() {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Active URL path location (used to detect if current page is homepage)
   const pathname = usePathname();
+
+  // Dark/Light mode theme state & setter (provided by next-themes)
   const { setTheme, theme, resolvedTheme } = useTheme();
+
+  // Client-side hydration sync flag (prevents SSR theme mismatch flickers)
   const mounted = React.useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
 
+  // Computed homepage checker flag (returns true if on '/')
+  const isHome = pathname === '/';
+
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Toggles active application theme between dark and light modes
   const toggleTheme = () => {
     const current = resolvedTheme || theme;
     setTheme(current === 'dark' ? 'light' : 'dark');
   };
 
-  const isHome = pathname === '/';
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-sm transition-colors">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-8">
-        {/* Brand & Nav */}
+        {/* Brand Logo & Navigation Links */}
         <div className="flex items-center gap-8">
+          {/* Obsidian Brand Logo Link */}
           <Link
             href="/"
             className="group flex items-center gap-2.5 transition-all duration-150 cursor-pointer"
@@ -41,6 +64,7 @@ export function Header() {
             </span>
           </Link>
 
+          {/* Navigation Links (Explore, Protocol, Security) */}
           <nav className="hidden md:flex items-center gap-2 text-xs font-mono">
             <span className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 cursor-pointer">
               Explore
@@ -54,12 +78,12 @@ export function Header() {
           </nav>
         </div>
 
-        {/* Right Tools & Identity */}
+        {/* Right Tools & Identity Key Manager */}
         <div className="flex items-center gap-2.5">
-          {/* Identity key manager panel */}
+          {/* Identity Key Management Trigger Panel */}
           <IdentityPanel />
 
-          {/* Theme switcher */}
+          {/* Dark / Light Theme Toggle Button */}
           {mounted && (
             <Button
               variant="ghost"
@@ -77,7 +101,7 @@ export function Header() {
             </Button>
           )}
 
-          {/* Create Paste Link - only on view pages */}
+          {/* "New Paste" Button (Shown only when viewing a paste subpage) */}
           {!isHome && (
             <Link href="/">
               <Button

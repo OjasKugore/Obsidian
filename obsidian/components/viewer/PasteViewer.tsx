@@ -5,6 +5,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Decrypted Paste Viewer Component.
  * Strict monochrome styling matching Obsidian design standards.
+ * Handles client-side decryption, real-time collaboration, Shamir quorum assembly,
+ * time-locks, and burn-after-reading destruction states.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -43,6 +45,9 @@ interface PasteViewerProps {
 }
 
 export function PasteViewer({ pasteId }: PasteViewerProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Custom hook managing decryption pipeline, state flags, and keys
   const {
     plaintext,
     formatter,
@@ -65,20 +70,28 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     decryptWithPrivateKey,
   } = usePasteDecryption(pasteId, true);
 
+  // UI state for copy feedback indicator
   const [copied, setCopied] = React.useState(false);
+  
+  // Render mode state (formatted markdown preview vs raw code text)
   const [viewMode, setViewMode] = React.useState<'formatted' | 'raw'>('formatted');
+  
+  // Real-time collaborative editing state and finalized lock flags
   const [isCollabEditing, setIsCollabEditing] = React.useState(false);
   const [isLocked, setIsLocked] = React.useState(false);
   const [isFinalizing, setIsFinalizing] = React.useState(false);
   const [finalizedNotice, setFinalizedNotice] = React.useState(false);
 
+  // Boolean flag enabling live collaborative editing (requires decrypted plaintext, key, and active room)
   const canCollab = Boolean(plaintext && rawKey && !isAsymmetric && !isBurned);
 
+  // Callback handler triggered when a remote peer locks the paste session
   const handleRemoteLock = React.useCallback(() => {
     setIsLocked(true);
     setIsCollabEditing(false);
   }, []);
 
+  // Real-time E2EE collaboration hook (handles WebSocket/Pusher connection & delta synchronization)
   const {
     isConnected: isCollabConnected,
     isConnecting: isCollabConnecting,
@@ -101,23 +114,28 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     onRemoteLock: handleRemoteLock,
   });
 
+  // Display text picker (shows real-time collaborative edits if connected, else static decrypted plaintext)
   const displayText = isCollabConnected && liveText ? liveText : (plaintext || '');
 
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Finalizes and locks collaborative paste, re-encrypts updated text, and persists to DB
   const handleLockAndFinalize = async () => {
     if (!rawKey || isFinalizing) return;
     try {
       setIsFinalizing(true);
-      // 1. Broadcast lock event immediately to all other connected tabs/peers
+      
+      // Broadcast lock event immediately to all connected peers
       broadcastLock(displayText);
 
-      // 2. Re-encrypt current collaborative displayText locally with the rawKey
+      // Re-encrypt updated text with rawKey
       const enc = await encrypt(displayText, formatter, {
         burnAfterReading: false,
         openDiscussion: meta?.openDiscussion ?? true,
         customKey: rawKey,
       });
 
-      // 3. Persist updated ciphertext to DB
+      // Persist updated ciphertext to DB
       const res = await fetch(`/api/v1/paste/${pasteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -143,6 +161,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     }
   };
 
+  // Copies decrypted plaintext directly to the system clipboard
   const copyToClipboard = async () => {
     if (!plaintext) return;
     try {
@@ -154,7 +173,9 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     }
   };
 
-  // ── Loading & Decrypting State ──────────────────────────────────────────────
+  // ── UI ─────────────────────────────────────────────────────────────────
+
+  /* Loading & Decrypting State UI */
   if (isLoading || (isDecrypting && !isQuorumNeeded)) {
     return (
       <div className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center min-h-[400px] p-8 font-mono">
@@ -175,7 +196,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── Shamir Quorum Panel (When more shards are required) ─────────────────────
+  /* Shamir Quorum Collection UI (When more shards are needed) */
   if (!plaintext && isQuorumNeeded) {
     return (
       <ShardQuorumPanel
@@ -189,7 +210,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── Asymmetric RSA-OAEP: awaiting private key ────────────────────────────────
+  /* RSA-OAEP Asymmetric Private Key Prompt UI */
   if (isAsymmetric && isAwaitingPrivateKey) {
     return (
       <PrivateKeyUnlock
@@ -200,7 +221,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── 404 / Burned After Reading State ────────────────────────────────────────
+  /* Burn-After-Reading Destruction UI */
   if (!plaintext && (isBurned || (error && error.includes('burned')))) {
     return (
       <motion.div
@@ -229,7 +250,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── Time-Locked State ───────────────────────────────────────────────────────
+  /* Time-Locked Paste UI */
   if (isTimeLocked) {
     return (
       <motion.div
@@ -256,7 +277,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── Error State ─────────────────────────────────────────────────────────────
+  /* Decryption Failure Error UI */
   if (error) {
     return (
       <motion.div
@@ -280,7 +301,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
     );
   }
 
-  // ── Success / Decrypted State ───────────────────────────────────────────────
+  /* Decrypted Paste Viewer & Real-time Editor Main UI */
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -288,7 +309,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
       transition={{ duration: 0.3 }}
       className="w-full max-w-4xl mx-auto flex flex-col gap-4 font-mono"
     >
-      {/* Asymmetric RSA-OAEP success banner if applicable */}
+      {/* Asymmetric RSA-OAEP Key Unlocked Banner */}
       {isAsymmetric && (
         <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs">
           <div className="flex items-center gap-2">
@@ -303,7 +324,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       )}
 
-      {/* Shamir Quorum Banner if applicable */}
+      {/* Shamir Quorum Reconstructed Banner */}
       {isShamir && (
         <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-xs">
           <div className="flex items-center gap-2">
@@ -318,7 +339,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       )}
 
-      {/* Burn Notice Banner (One-time view) */}
+      {/* Burn-After-Reading Alert Banner */}
       {meta?.burnAfterReading && (
         <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs">
           <div className="flex items-center gap-2">
@@ -333,7 +354,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       )}
 
-      {/* Real-Time E2EE Collaboration Bar */}
+      {/* Real-Time E2EE Collaboration Status Bar */}
       {canCollab && (
         <CollabIndicator
           isConnected={isCollabConnected}
@@ -347,7 +368,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         />
       )}
 
-      {/* Finalized Sealed Notice */}
+      {/* Finalized Paste Locked Banner */}
       {finalizedNotice && (
         <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
           <div className="flex items-center gap-2">
@@ -362,9 +383,9 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       )}
 
-      {/* Main Content Card */}
+      {/* Main Decrypted Code / Document Card */}
       <div className="rounded-xl border border-border/80 bg-card/95 p-5 sm:p-7 flex flex-col gap-4 shadow-xl soft-shadow relative overflow-hidden">
-        {/* Viewer Toolbar */}
+        {/* Viewer Top Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300 font-bold uppercase">
@@ -372,6 +393,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               <span>Decrypted: {formatter}</span>
             </div>
 
+            {/* Markdown Rendered / Raw View Switcher */}
             {formatter === 'markdown' && !isCollabEditing && (
               <div className="flex items-center rounded bg-background p-0.5 border border-border text-xs">
                 <button
@@ -401,6 +423,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
               </div>
             )}
 
+            {/* Live Collab Editing View Toggle */}
             {canCollab && !isLocked && (
               <Button
                 variant="outline"
@@ -414,7 +437,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
             )}
           </div>
 
-          {/* Right Action Bar */}
+          {/* Line Counter & Copy Action Button */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
               {displayText.split('\n').length} {displayText.split('\n').length === 1 ? 'line' : 'lines'} • {displayText.length.toLocaleString()} chars
@@ -440,7 +463,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </div>
         </div>
 
-        {/* Content Display: Collaborative Edit vs Rendered vs Raw */}
+        {/* Content View Canvas (Collaborative Editor vs Rendered Markdown vs Raw Text) */}
         {isCollabEditing ? (
           <div className="flex flex-col gap-2">
             <textarea
@@ -470,7 +493,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
           </div>
         )}
 
-        {/* Metadata Footer */}
+        {/* Footer Metadata Info Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs text-muted-foreground border-t border-border">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
@@ -491,7 +514,7 @@ export function PasteViewer({ pasteId }: PasteViewerProps) {
         </div>
       </div>
 
-      {/* End-to-End Encrypted Comment Thread */}
+      {/* End-to-End Encrypted Comment Thread Section */}
       {meta?.openDiscussion && rawKey && (
         <CommentSection pasteId={pasteId} rawKey={rawKey} />
       )}

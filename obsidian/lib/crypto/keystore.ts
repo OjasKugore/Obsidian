@@ -19,14 +19,12 @@ import {
   getKeyFingerprint,
 } from './asymmetric';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── DATABASE CONSTANTS & SCHEMA TYPES ─────────────────────────────
 
 const DB_NAME    = 'obsidian-keystore';
 const DB_VERSION = 1;
 const STORE_NAME = 'identity-keys';
 const KEY_ID     = 'identity';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface IdentityKeyRecord {
   /** The RSA-2048 public key — used to wrap AES keys for others */
@@ -48,7 +46,7 @@ interface StoredRecord {
   createdAt: string;
 }
 
-// ── DB helpers ────────────────────────────────────────────────────────────────
+// ── INDEXEDDB LOW-LEVEL HELPERS ───────────────────────────────────
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -90,7 +88,7 @@ function dbDelete(db: IDBDatabase, key: string): Promise<void> {
   });
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── RSA IDENTITY KEY PERSISTENCE API ────────────────────────────────
 
 /**
  * Generates a new RSA-2048 keypair and persists base64 strings to IndexedDB.
@@ -151,7 +149,7 @@ export async function loadIdentityKey(): Promise<IdentityKeyRecord | null> {
 }
 
 /**
- * Quick existence check.
+ * Checks if an identity key is currently saved in IndexedDB.
  */
 export async function hasIdentityKey(): Promise<boolean> {
   const record = await loadIdentityKey();

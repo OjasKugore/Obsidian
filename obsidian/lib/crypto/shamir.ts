@@ -13,7 +13,9 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-// ── GF(256) Field Arithmetic Tables ──────────────────────────────────────────
+import { assertSubtleCrypto } from './kdf';
+
+// ── GF(256) GALOIS FIELD ARITHMETIC ───────────────────────────────────
 
 const EXP_TABLE = new Uint8Array(512);
 const LOG_TABLE = new Uint8Array(256);
@@ -28,26 +30,26 @@ const LOG_TABLE = new Uint8Array(256);
     // Multiply by generator g = 3: (x * 2) ^ x
     const hi = x & 0x80;
     x = (x << 1) & 0xff;
-    if (hi) x ^= 0x1b; // 0x11b mod 0x100
+    if (hi) x ^= 0x1b;
     x ^= EXP_TABLE[i];
   }
-  LOG_TABLE[0] = 0; // log(0) undefined, sentinel
+  LOG_TABLE[0] = 0;
 })();
 
-/** Multiply two elements in GF(256) */
+/** Multiplies two elements in GF(256) */
 function gfMul(a: number, b: number): number {
   if (a === 0 || b === 0) return 0;
   return EXP_TABLE[LOG_TABLE[a] + LOG_TABLE[b]];
 }
 
-/** Divide two elements in GF(256): a / b */
+/** Divides two elements in GF(256): a / b */
 function gfDiv(a: number, b: number): number {
   if (b === 0) throw new Error('GF(256) division by zero');
   if (a === 0) return 0;
   return EXP_TABLE[LOG_TABLE[a] - LOG_TABLE[b] + 255];
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── HELPER DATA CONVERTERS ────────────────────────────────────────────
 
 export interface ShardInfo {
   index: number;     // 1-based index (x-coordinate)
@@ -56,8 +58,6 @@ export interface ShardInfo {
   data: Uint8Array;  // shard evaluations for each byte
   rawString: string; // serialized shard string
 }
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -76,7 +76,7 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-// ── Core API ─────────────────────────────────────────────────────────────────
+// ── SHAMIR SECRET SHARING API ──────────────────────────────────────────
 
 /**
  * Splits a raw secret (e.g. 32-byte AES key) into `shares` shards such that
@@ -92,6 +92,7 @@ export function splitKey(
   shares: number,
   threshold: number
 ): string[] {
+  assertSubtleCrypto();
   if (secret.length === 0) {
     throw new Error('Secret cannot be empty');
   }
@@ -103,23 +104,18 @@ export function splitKey(
   }
 
   const byteLength = secret.length;
-  // Polynomial coefficients for each byte:
-  // For byte b: coeffs[b] = [a0, a1, ..., a_{k-1}] where a0 = secret[b]
   const randomCoeffs = new Uint8Array(byteLength * (threshold - 1));
   crypto.getRandomValues(randomCoeffs);
 
   const resultShards: string[] = [];
 
-  // Generate share for each x = 1 .. shares
   for (let shareIdx = 1; shareIdx <= shares; shareIdx++) {
     const x = shareIdx;
     const shareBytes = new Uint8Array(byteLength);
 
     for (let b = 0; b < byteLength; b++) {
-      // f_b(0) = secret[b]
       let y = secret[b];
 
-      // evaluate polynomial at x: y = a0 ^ (a1 * x) ^ (a2 * x^2) ^ ...
       let xPower = x;
       for (let degree = 1; degree < threshold; degree++) {
         const coeff = randomCoeffs[b * (threshold - 1) + (degree - 1)];
@@ -130,7 +126,6 @@ export function splitKey(
       shareBytes[b] = y;
     }
 
-    // Format: shard-${threshold}-${shareIdx}-${shares}-${bytesToHex(shareBytes)}
     const shardString = `shard-${threshold}-${shareIdx}-${shares}-${bytesToHex(shareBytes)}`;
     resultShards.push(shardString);
   }
@@ -139,7 +134,7 @@ export function splitKey(
 }
 
 /**
- * Reconstructs the original secret from an array of shard strings.
+ * Reconstructs the original secret from an array of shard strings using Lagrange interpolation at x=0.
  *
  * @param shardStrings - Array of serialized shard strings (must contain at least `threshold` unique shards)
  * @returns Reconstructed secret as Uint8Array
@@ -149,7 +144,6 @@ export function combineShards(shardStrings: string[]): Uint8Array {
     throw new Error('No shards provided for reconstruction');
   }
 
-  // Parse and deduplicate by index
   const shardMap = new Map<number, ShardInfo>();
 
   for (const s of shardStrings) {
@@ -173,7 +167,6 @@ export function combineShards(shardStrings: string[]): Uint8Array {
     );
   }
 
-  // Verify all shards have matching threshold and length
   for (const shard of validShards) {
     if (shard.threshold !== threshold) {
       throw new Error('Mismatched threshold across shards');
@@ -183,12 +176,9 @@ export function combineShards(shardStrings: string[]): Uint8Array {
     }
   }
 
-  // Take the first `threshold` unique shards
   const subset = validShards.slice(0, threshold);
   const reconstructed = new Uint8Array(byteLength);
 
-  // Compute Lagrange basis polynomials at x = 0 for each shard j:
-  // L_j(0) = \prod_{m \ne j} (x_m / (x_j ^ x_m))
   const lagrangeWeights = new Uint8Array(threshold);
 
   for (let j = 0; j < threshold; j++) {
@@ -198,7 +188,7 @@ export function combineShards(shardStrings: string[]): Uint8Array {
     for (let m = 0; m < threshold; m++) {
       if (m === j) continue;
       const xm = subset[m].index;
-      const denominator = xj ^ xm; // in GF(256), xj - xm is xj ^ xm
+      const denominator = xj ^ xm;
       const factor = gfDiv(xm, denominator);
       weight = gfMul(weight, factor);
     }
@@ -206,7 +196,6 @@ export function combineShards(shardStrings: string[]): Uint8Array {
     lagrangeWeights[j] = weight;
   }
 
-  // Reconstruct each byte: secret[b] = \sum_{j=0}^{k-1} subset[j].data[b] * L_j(0)
   for (let b = 0; b < byteLength; b++) {
     let secretByte = 0;
     for (let j = 0; j < threshold; j++) {
@@ -218,26 +207,20 @@ export function combineShards(shardStrings: string[]): Uint8Array {
   return reconstructed;
 }
 
+// ── SHARD PARSING & LINK EXTRACTION ────────────────────────────────────
+
 /**
  * Parses a shard string into structured metadata and data.
- * Accepts formats:
- *   - `shard-<threshold>-<index>-<total>-<hex>`
- *   - `shard-<threshold>-<index>-<hex>`
- *   - `shard:<threshold>:<index>:<hex>`
- *   - `s-<threshold>-<index>-<hex>`
  */
 export function parseShard(input: string): ShardInfo | null {
   if (!input || typeof input !== 'string') return null;
 
   const trimmed = input.trim();
-  // Strip URL hash or leading prefixes if present
   let clean = trimmed;
   if (clean.includes('#')) {
     clean = clean.split('#')[1];
   }
 
-  // Pattern 1: shard-k-i-n-hex or shard-k-i-hex
-  // Examples: shard-2-1-3-a1b2... or shard-2-1-a1b2... or s-2-1-a1b2...
   const parts = clean.split(/[-:]/);
   if (parts.length >= 4 && (parts[0].toLowerCase() === 'shard' || parts[0].toLowerCase() === 's')) {
     const threshold = parseInt(parts[1], 10);

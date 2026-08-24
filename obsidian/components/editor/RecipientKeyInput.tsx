@@ -4,7 +4,8 @@
  * components/editor/RecipientKeyInput.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Input component for asymmetric delivery mode in PasteEditor.
- * Pure monochrome styling matching Obsidian design standards.
+ * Validates RSA-2048 public keys in real-time and computes fingerprints.
+ * Strict monochrome styling matching Obsidian design standards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -34,15 +35,24 @@ export function RecipientKeyInput({
   onChange,
   onKeyChange,
 }: RecipientKeyInputProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Key validation state ('idle', 'validating', 'valid', or 'invalid')
   const [validationState, setValidationState] = React.useState<
     'idle' | 'validating' | 'valid' | 'invalid'
   >('idle');
+
+  // Fingerprint string derived from valid imported RSA public key
   const [fingerprint, setFingerprint] = React.useState<string | null>(null);
+
+  // Validation error message text
   const [validationError, setValidationError] = React.useState<string | null>(null);
+
+  // Active user's own identity key status and base64 string (used for self-testing)
   const [hasMyKey, setHasMyKey] = React.useState(false);
   const [myKeyBase64, setMyKeyBase64] = React.useState<string | null>(null);
 
-  // Check if current user has an identity key in IndexedDB
+  // Checks IndexedDB on mount to see if current user has an identity key for quick autofill
   React.useEffect(() => {
     loadIdentityKey().then((key) => {
       if (key) {
@@ -52,7 +62,7 @@ export function RecipientKeyInput({
     });
   }, []);
 
-  // Validate whenever value changes (debounced)
+  // Debounced real-time RSA public key import & fingerprint validation effect
   React.useEffect(() => {
     const timer = setTimeout(async () => {
       const trimmed = value.trim();
@@ -95,12 +105,24 @@ export function RecipientKeyInput({
     return () => clearTimeout(timer);
   }, [value, onKeyChange]);
 
+  // Computed CSS border style based on key validation status
+  const borderClass =
+    validationState === 'valid'
+      ? 'border-foreground/80'
+      : validationState === 'invalid'
+      ? 'border-destructive'
+      : 'border-border focus-within:border-foreground/50';
+
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Fills the input with current user's own public key for self-testing
   const handleUseMyKey = () => {
     if (myKeyBase64) {
       onChange(myKeyBase64);
     }
   };
 
+  // Clears the key input area and resets validation state
   const handleClear = () => {
     onChange('');
     setValidationState('idle');
@@ -109,16 +131,11 @@ export function RecipientKeyInput({
     onKeyChange(null);
   };
 
-  const borderClass =
-    validationState === 'valid'
-      ? 'border-foreground/80'
-      : validationState === 'invalid'
-      ? 'border-destructive'
-      : 'border-border focus-within:border-foreground/50';
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-muted/40 border border-border font-mono">
-      {/* Header row */}
+      {/* Header Row & Quick Autofill Action Button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider">
           <ShieldCheck className="h-4 w-4 text-foreground" />
@@ -138,7 +155,7 @@ export function RecipientKeyInput({
         )}
       </div>
 
-      {/* Textarea container */}
+      {/* Public Key Textarea Input Field */}
       <div className={`relative rounded-lg border bg-background/80 transition-colors ${borderClass}`}>
         <textarea
           value={value}
@@ -161,7 +178,7 @@ export function RecipientKeyInput({
         )}
       </div>
 
-      {/* Validation status feedback */}
+      {/* Validation Status & Fingerprint Feedback Display */}
       <AnimatePresence mode="wait">
         {validationState === 'validating' && (
           <motion.div
@@ -210,7 +227,7 @@ export function RecipientKeyInput({
         )}
       </AnimatePresence>
 
-      {/* How it works hint */}
+      {/* Architecture Hint Note */}
       {validationState === 'idle' && (
         <p className="text-[10px] text-muted-foreground leading-relaxed">
           The AES-256 key is wrapped with this RSA public key. Only the matching private key holder can decrypt.{' '}

@@ -4,6 +4,7 @@
  * components/viewer/CommentSection.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * End-to-end encrypted comment thread for open discussion pastes.
+ * Encrypts and decrypts comments client-side using the shared paste URL key.
  * Strict monochrome styling matching Obsidian design standards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -39,14 +40,25 @@ interface CommentSectionProps {
 const AVATAR_ICONS = ['💬', '🔒', '⚡', '💡', '🛡️', '🚀', '🤖', '🐱'];
 
 export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // List of client-side decrypted comments
   const [comments, setComments] = React.useState<DecryptedComment[]>([]);
+  
+  // Loading and submitting status flags
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  
+  // Error message state
   const [error, setError] = React.useState<string | null>(null);
+  
+  // New comment text input state
   const [content, setContent] = React.useState('');
+  
+  // Selected avatar icon emoji
   const [selectedIcon, setSelectedIcon] = React.useState('💬');
 
-  // 1. Fetch & Decrypt existing comments
+  // Fetches encrypted comments from backend API and decrypts them client-side using rawKey
   React.useEffect(() => {
     if (!pasteId || !rawKey) return;
     let cancelled = false;
@@ -108,7 +120,9 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
     };
   }, [pasteId, rawKey]);
 
-  // 2. Submit new encrypted comment
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Encrypts new comment text client-side with AES-256-GCM and POSTs payload to API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isSubmitting) return;
@@ -165,6 +179,8 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
     }
   };
 
+  // ── UI ─────────────────────────────────────────────────────────────────
+
   return (
     <div className="w-full flex flex-col gap-6 mt-4 font-mono">
       {/* Section Header */}
@@ -194,7 +210,7 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
             <Lock className="h-3 w-3 text-foreground" /> Choose your avatar:
           </span>
 
-          {/* Avatar Icon Selector */}
+          {/* Avatar Emoji Selector */}
           <div className="flex items-center gap-1 bg-background p-1 rounded border border-border">
             {AVATAR_ICONS.map((icon) => (
               <button
@@ -213,7 +229,7 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
           </div>
         </div>
 
-        {/* Text Input */}
+        {/* Comment Textarea Input */}
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -223,7 +239,7 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
           className="w-full bg-background rounded border border-border p-3 text-xs font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/50 resize-y min-h-[80px]"
         />
 
-        {/* Submit Action */}
+        {/* Form Action Row */}
         <div className="flex items-center justify-between pt-1">
           <span className="text-[10px] text-muted-foreground">
             Encrypted client-side with AES-256-GCM
@@ -249,7 +265,7 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
           </Button>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Alert Display */}
         {error && (
           <div className="flex items-center gap-2 p-2.5 rounded bg-destructive/10 border border-destructive/25 text-destructive text-xs">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -258,7 +274,7 @@ export function CommentSection({ pasteId, rawKey }: CommentSectionProps) {
         )}
       </form>
 
-      {/* Comment List */}
+      {/* Decrypted Comments Thread List */}
       {isLoading ? (
         <div className="flex items-center justify-center p-8 gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-foreground" />

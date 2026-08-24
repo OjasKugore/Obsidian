@@ -1,19 +1,17 @@
 /**
  * lib/pusher.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Pusher server-side client singleton.
+ * Pusher Server-Side Client Singleton & Blind Relay.
  *
- * Used only in API Route handlers (Node.js runtime) — never import this from
- * client components. For client-side Pusher, use pusher-js directly in the
- * useCollab hook (Phase 3).
- *
- * Pusher is used as a blind relay — it never sees plaintext. All deltas
- * transmitted over Pusher channels are AES-256-GCM encrypted client-side
- * before being sent, and decrypted client-side on receipt.
+ * Provides WebSockets connection management for real-time collaboration.
+ * Pusher functions purely as a blind relay — all payload data is encrypted
+ * with AES-256-GCM client-side before broadcast and decrypted client-side.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import Pusher from 'pusher';
+
+// ── PUSHER CLIENT FACTORY ──────────────────────────────────────────────
 
 const globalForPusher = globalThis as unknown as {
   pusher: Pusher | undefined;
@@ -28,9 +26,9 @@ function createPusherClient(): Pusher {
   if (!appId || !key || !secret || !cluster) {
     console.warn(
       '[pusher] Missing PUSHER_* env vars — Pusher is disabled. ' +
-        'Real-time collab (Phase 3) will not work until you add credentials to .env.local.'
+        'Real-time collab will not work until you add credentials to .env.local.'
     );
-    // Return a minimal stub that satisfies the Pusher type
+    // Return a minimal stub that satisfies the Pusher type signature
     return {
       trigger: async () => ({ status: 200 }),
       authorizeChannel: () => ({ auth: 'stub' }),
@@ -39,6 +37,8 @@ function createPusherClient(): Pusher {
 
   return new Pusher({ appId, key, secret, cluster, useTLS: true });
 }
+
+// ── GLOBALTHIS SINGLETON INSTANTIATION ────────────────────────────────
 
 export const pusher: Pusher =
   globalForPusher.pusher ?? createPusherClient();

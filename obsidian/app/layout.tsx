@@ -1,7 +1,21 @@
+/**
+ * app/layout.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Root Application Layout Wrapper.
+ *
+ * Configures global typography fonts (Geist Sans, Geist Mono, Montserrat),
+ * SEO metadata, CSP nonce security header injection, dark mode ThemeProvider,
+ * and base HTML document structure for all Next.js pages.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono, Montserrat } from 'next/font/google';
 import { headers } from 'next/headers';
+import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
+
+// ── FONT CONFIGURATION & METADATA ─────────────────────────────────────
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -29,23 +43,28 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }, // Pastes are private by design
 };
 
-import { ThemeProvider } from '@/components/theme-provider';
+// ── ROOT LAYOUT COMPONENT ─────────────────────────────────────────────
 
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
   // Nonce injected by middleware (lib/security-headers.ts) for CSP compliance
   const nonce = (await headers()).get('x-nonce') ?? '';
 
+  // {/* ── UI ───────────────────────────────────────────────────────────────── */}
   return (
     <html
       lang="en"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary-foreground" data-nonce={nonce}>
+      <body
+        className="min-h-full flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary-foreground"
+        data-nonce={nonce}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

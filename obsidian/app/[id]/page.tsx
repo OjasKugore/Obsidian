@@ -1,3 +1,11 @@
+/**
+ * app/[id]/page.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Decrypted Paste View Route Page.
+ * Server component that receives paste ID parameters and renders PasteViewer.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { Header } from '@/components/layout/Header';
 import { PasteViewer } from '@/components/viewer/PasteViewer';
 import { AuroraBackground } from '@/components/ui/AuroraBackground';
@@ -7,7 +15,12 @@ export default async function ViewPastePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Await async route parameter payload containing paste ID
   const { id } = await params;
+
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <AuroraBackground>
@@ -19,7 +32,7 @@ export default async function ViewPastePage({
         <PasteViewer pasteId={id} />
       </main>
 
-      {/* Industrial Monochrome Footer */}
+      {/* Footer Bar */}
       <footer className="w-full border-t border-border py-6 text-xs font-mono text-muted-foreground bg-muted/20 mt-auto">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="font-[family-name:var(--font-montserrat)] font-black text-xs tracking-tight text-foreground">OBSIDIAN &bull; Client-Side Decrypted View</span>

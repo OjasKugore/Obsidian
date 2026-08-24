@@ -1,8 +1,12 @@
 // prisma/schema.prisma
 // ─────────────────────────────────────────────────────────────────────────────
-// Full schema for the Obsidian app.
-// Member A owns this file. Run `npx prisma generate` after any change.
+// Database Schema Definition for Obsidian Encrypted Pastebin.
+//
+// Defines PostgreSQL database models (Paste, Comment, AccessLog, ServerConfig)
+// for storing encrypted zero-knowledge payloads, expiration timers, and audit logs.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ── PRISMA GENERATOR & DATASOURCE CONFIG ─────────────────────────────
 
 generator client {
   provider = "prisma-client-js"
@@ -12,7 +16,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// ── Paste ─────────────────────────────────────────────────────────────────────
+// ── DATABASE MODELS ───────────────────────────────────────────────────
+
+// ── 1. Paste Model (Core Encrypted Paste Vault Storage) ───────────────
 
 model Paste {
   /// fnv1a64(ciphertext) — 16 lowercase hex chars
@@ -38,13 +44,13 @@ model Paste {
   /// Number of times this paste has been viewed
   views            Int       @default(0)
 
-  /// N-view self-destruct: delete when views >= maxViews (Phase 4)
+  /// N-view self-destruct: delete when views >= maxViews
   maxViews         Int?
 
-  /// Time capsule: server rejects GET requests before this timestamp (Phase 4)
+  /// Time capsule: server rejects GET requests before this timestamp
   timelockedUntil  DateTime?
 
-  // ── Shamir shard fields ───────────────────────────────────────────────────
+  // ── Shamir secret sharing fields ──────────────────────────────────────────
 
   /// True when this row stores a single Shamir SSS shard
   shard            Boolean   @default(false)
@@ -55,7 +61,7 @@ model Paste {
   /// Total number of shards in the scheme
   shardTotal       Int?
 
-  // ── Asymmetric mode ───────────────────────────────────────────────────────
+  // ── Asymmetric RSA-OAEP key wrapping fields ───────────────────────────────
 
   /// True when adata[4] carries an RSA-OAEP wrapped AES key
   recipientMode    Boolean   @default(false)
@@ -63,13 +69,13 @@ model Paste {
   /// Ephemeral X25519 public key (reserved for future ECDH upgrade, nullable)
   ephemeralPubKey  String?   @db.Text
 
-  // ── Relations ─────────────────────────────────────────────────────────────
+  // ── Model Relations ──────────────────────────────────────────────────────
 
   comments         Comment[]
   accessLog        AccessLog[]
 }
 
-// ── Comment ───────────────────────────────────────────────────────────────────
+// ── 2. Comment Model (E2EE Discussion Threads) ─────────────────────────
 
 model Comment {
   id         String   @id @default(cuid())
@@ -86,7 +92,7 @@ model Comment {
   paste      Paste    @relation(fields: [pasteId], references: [id], onDelete: Cascade)
 }
 
-// ── AccessLog ─────────────────────────────────────────────────────────────────
+// ── 3. AccessLog Model (Anonymized HMAC IP Access Audit Log) ─────────
 
 model AccessLog {
   id         String   @id @default(cuid())
@@ -98,8 +104,7 @@ model AccessLog {
   paste      Paste    @relation(fields: [pasteId], references: [id], onDelete: Cascade)
 }
 
-// ── ServerConfig ──────────────────────────────────────────────────────────────
-// KV store for server-side secrets (e.g. the HMAC salt for IP hashing).
+// ── 4. ServerConfig Model (Key-Value Store for Server Secrets) ─────────
 
 model ServerConfig {
   key   String @id

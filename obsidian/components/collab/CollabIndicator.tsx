@@ -43,13 +43,19 @@ export function CollabIndicator({
   onLockPaste,
   isLocked = false,
 }: CollabIndicatorProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Computed active collaborators count (ensures minimum display count of 1 for self)
   const activeCount = Math.max(1, collaborators.length);
+
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 font-mono shadow-sm transition-all min-h-[64px] justify-center">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Connection Status & Mode Badge */}
+        {/* Left: Connection Status & Encryption Mode Badge */}
         <div className="flex items-center gap-2.5">
+          {/* Connection Status Icon Indicator */}
           <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted border border-border text-foreground">
             {isConnected ? (
               <>
@@ -65,6 +71,7 @@ export function CollabIndicator({
             )}
           </div>
 
+          {/* Connection Status Title & Protocol Badge */}
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-tight text-foreground">
@@ -90,9 +97,9 @@ export function CollabIndicator({
           </div>
         </div>
 
-        {/* Right: Collaborator Avatars & Action */}
+        {/* Right: Active Collaborator Avatars, Peer Count & Lock Action */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Avatar stack */}
+          {/* Active Collaborator Avatar Stack */}
           <div className="flex items-center -space-x-1.5 py-0.5">
             {collaborators.length > 0 ? (
               collaborators.slice(0, 5).map((collab) => (
@@ -120,11 +127,13 @@ export function CollabIndicator({
             )}
           </div>
 
+          {/* Active Peer Count Badge */}
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono bg-background px-2 py-0.5 rounded border border-border shrink-0">
             <Users className="h-3 w-3 text-foreground" />
             <span>{activeCount} {activeCount === 1 ? 'peer' : 'peers'}</span>
           </div>
 
+          {/* Lock & Finalize Paste Button */}
           {onLockPaste && !isLocked && (
             <Button
               size="sm"

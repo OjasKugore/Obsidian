@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * hooks/usePasteEncryption.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Custom React hook for client-side paste encryption.
+ * Encrypts plaintext in-browser using AES-256-GCM, supports Shamir secret sharing (k-of-n),
+ * RSA-OAEP asymmetric key wrapping for targeted recipients, and POSTs payload to backend.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import { useState, useCallback } from 'react';
 import { encrypt, toBase58 } from '@/lib/crypto/cipher';
 import { splitKey } from '@/lib/crypto/shamir';
@@ -20,10 +29,8 @@ export interface EncryptionOptions {
   isShamir?: boolean;
   threshold?: number;
   totalShares?: number;
-  /** RSA-OAEP asymmetric mode — recipient's base64 public key */
-  isAsymmetric?: boolean;
-  /** The recipient's RSA-2048 public key in base64 SPKI format */
-  recipientPublicKey?: string;
+  isAsymmetric?: boolean; /** RSA-OAEP asymmetric mode — recipient's base64 public key */
+  recipientPublicKey?: string; /** The recipient's RSA-2048 public key in base64 SPKI format */
 }
 
 export interface EncryptionResult {
@@ -34,16 +41,25 @@ export interface EncryptionResult {
   isShamir?: boolean;
   threshold?: number;
   totalShares?: number;
-  shardUrls?: ShardUrlItem[];
-  /** True when this was an RSA-OAEP asymmetric paste */
+  shardUrls?: ShardUrlItem[]; /** True when this was an RSA-OAEP asymmetric paste */
   isAsymmetric?: boolean;
 }
 
 export function usePasteEncryption() {
+  // ── STATE ──────────────────────────────────────────────────────────────
+
+  // Loading indicator flag during client-side encryption and API network request
   const [isLoading, setIsLoading] = useState(false);
+
+  // Error message state if validation, crypto, or API request fails
   const [error, setError] = useState<string | null>(null);
+
+  // Encryption result output container (contains shareable URL, paste ID, delete token, and shards)
   const [result, setResult] = useState<EncryptionResult | null>(null);
 
+  // ── ACTIONS & CRYPTO LOGIC ──────────────────────────────────────────────
+
+  // Main submission handler: validates input, performs AES-256-GCM encryption, RSA key sealing or Shamir splitting, and POSTs payload
   const encryptAndSubmit = useCallback(
     async (
       plaintext: string,
@@ -61,6 +77,7 @@ export function usePasteEncryption() {
         recipientPublicKey = '',
       } = options;
 
+      // Input parameter validations
       if (!plaintext.trim()) {
         setError('Paste content cannot be empty.');
         return null;
@@ -86,13 +103,13 @@ export function usePasteEncryption() {
       setError(null);
 
       try {
-        // 1. AES-256-GCM encrypt in browser (Tier 1 — always the same)
+        // Step 1: Perform client-side AES-256-GCM encryption in browser using SubtleCrypto
         const encResult = await encrypt(plaintext, formatter, {
           burnAfterReading,
           openDiscussion,
         });
 
-        // 2. Asymmetric RSA-OAEP path: wrap AES key with recipient public key
+        // Step 2: Asymmetric RSA-OAEP path — seal raw AES key with recipient's public key
         let finalAdata: AdataSchema = encResult.adata;
         if (isAsymmetric) {
           let recipientPubKey: CryptoKey;
@@ -104,11 +121,10 @@ export function usePasteEncryption() {
             );
           }
           const wrappedKeyBase64 = await wrapAESKey(encResult.rawKey, recipientPubKey);
-          // Append RSA-OAEP wrapped key as adata[4]
           finalAdata = [...encResult.adata, wrappedKeyBase64] as AdataSchema;
         }
 
-        // 3. Prepare API payload
+        // Step 3: Construct API request body payload
         const payload: CreatePasteBody = {
           v: 2,
           ct: encResult.ciphertext,
@@ -124,7 +140,7 @@ export function usePasteEncryption() {
           },
         };
 
-        // 4. POST to server
+        // Step 4: Send encrypted payload to server via POST request
         const response = await fetch('/api/v1/paste', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -142,15 +158,13 @@ export function usePasteEncryption() {
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const keyBase58 = toBase58(encResult.rawKey);
 
-        // 5. Construct share URL
+        // Step 5: Build final zero-knowledge shareable URLs (Fragment key hash, RSA #asym tag, or Shamir shards)
         let shardUrls: ShardUrlItem[] | undefined;
         let primaryShareUrl: string;
 
         if (isAsymmetric) {
-          // No key in URL — just the #asym sentinel
           primaryShareUrl = `${origin}/${data.pasteId}#asym`;
         } else if (isShamir) {
-          // Split AES key into N shard fragments
           const shards = splitKey(encResult.rawKey, totalShares, threshold);
           shardUrls = shards.map((shardStr, idx) => ({
             index: idx + 1,
@@ -159,7 +173,6 @@ export function usePasteEncryption() {
           }));
           primaryShareUrl = shardUrls[0]?.url || `${origin}/${data.pasteId}#${keyBase58}`;
         } else {
-          // Standard symmetric: key in fragment
           primaryShareUrl = `${origin}/${data.pasteId}#${keyBase58}`;
         }
 
@@ -191,11 +204,14 @@ export function usePasteEncryption() {
     []
   );
 
+  // Resets error, result, and loading state back to initial values
   const reset = useCallback(() => {
     setError(null);
     setResult(null);
     setIsLoading(false);
   }, []);
+
+  // ── RETURN ─────────────────────────────────────────────────────────────
 
   return {
     encryptAndSubmit,

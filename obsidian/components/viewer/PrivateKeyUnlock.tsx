@@ -4,7 +4,7 @@
  * components/viewer/PrivateKeyUnlock.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Shown on the viewer page when the URL fragment is "#asym".
- * The user must provide their RSA private key to unwrap the AES key.
+ * Prompts the user for their RSA-2048 private key to unwrap the AES key in-browser.
  * Strict monochrome styling matching Obsidian design standards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -28,11 +28,8 @@ import { importRSAPrivateKey } from '@/lib/crypto/asymmetric';
 import type { IdentityKeyRecord } from '@/lib/crypto/keystore';
 
 interface PrivateKeyUnlockProps {
-  /** Called with a valid CryptoKey when the user authenticates */
   onUnlock: (privateKey: CryptoKey) => void;
-  /** Error from the outer decryption attempt (wrong key, etc.) */
   decryptError?: string | null;
-  /** Whether the parent is currently decrypting after key submission */
   isDecrypting?: boolean;
 }
 
@@ -41,10 +38,13 @@ export function PrivateKeyUnlock({
   decryptError,
   isDecrypting = false,
 }: PrivateKeyUnlockProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Stored identity key record from browser IndexedDB
   const [identityKey, setIdentityKey] = React.useState<IdentityKeyRecord | null>(null);
   const [isLoadingKey, setIsLoadingKey] = React.useState(true);
 
-  // Manual key input state
+  // Manual key input & UI visibility state
   const [manualKeyValue, setManualKeyValue] = React.useState<string>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -61,13 +61,12 @@ export function PrivateKeyUnlock({
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
 
-  // Load identity key from IndexedDB on mount
+  // Loads stored RSA identity key on component mount
   React.useEffect(() => {
     loadIdentityKey()
       .then((record) => {
         setIdentityKey(record);
         setIsLoadingKey(false);
-        // If no identity key found, show manual input immediately
         if (!record) setShowManualInput(true);
       })
       .catch(() => {
@@ -76,7 +75,13 @@ export function PrivateKeyUnlock({
       });
   }, []);
 
-  // ── Use identity key from IndexedDB ────────────────────────────────────────
+  // Computed error and busy status flags
+  const errorToShow = localError || decryptError;
+  const busy = isProcessing || isDecrypting;
+
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Unlocks paste using stored IndexedDB identity key
   const handleUseIdentityKey = async () => {
     if (!identityKey) return;
     setIsProcessing(true);
@@ -91,7 +96,7 @@ export function PrivateKeyUnlock({
     }
   };
 
-  // ── Use manually pasted key ────────────────────────────────────────────────
+  // Imports manually pasted RSA private key and triggers unlock
   const handleManualUnlock = async () => {
     const trimmed = manualKeyValue.trim();
     if (!trimmed) {
@@ -120,10 +125,9 @@ export function PrivateKeyUnlock({
     }
   };
 
-  const errorToShow = localError || decryptError;
-  const busy = isProcessing || isDecrypting;
+  // ── UI ─────────────────────────────────────────────────────────────────
 
-  // ── Loading state ──────────────────────────────────────────────────────────
+  /* Loading Identity Key State UI */
   if (isLoadingKey) {
     return (
       <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-4 p-8 font-mono">
@@ -140,9 +144,8 @@ export function PrivateKeyUnlock({
       transition={{ duration: 0.25 }}
       className="w-full max-w-xl mx-auto my-8 flex flex-col gap-5 font-mono"
     >
-      {/* Header Card */}
+      {/* Header Info Card */}
       <div className="rounded-lg border border-border bg-card p-6 sm:p-8 flex flex-col items-center text-center gap-4 shadow-xl">
-        {/* Icon */}
         <div className="flex h-14 w-14 items-center justify-center rounded bg-muted border border-border text-foreground">
           <Lock className="h-7 w-7 text-foreground" />
         </div>
@@ -155,7 +158,7 @@ export function PrivateKeyUnlock({
           </p>
         </div>
 
-        {/* Security badges */}
+        {/* Security Badges */}
         <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono">
           <span className="flex items-center gap-1 px-2.5 py-1 rounded bg-muted border border-border text-foreground">
             <ShieldCheck className="h-3 w-3 text-foreground" />
@@ -168,9 +171,9 @@ export function PrivateKeyUnlock({
         </div>
       </div>
 
-      {/* Unlock Options */}
+      {/* Unlock Options Container */}
       <div className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4 shadow-xl">
-        {/* Option 1: Identity key from IndexedDB */}
+        {/* Option 1: Unlock with stored IndexedDB Identity Key */}
         {identityKey && !showManualInput && (
           <motion.div
             initial={{ opacity: 0, y: 4 }}
@@ -229,7 +232,7 @@ export function PrivateKeyUnlock({
           </motion.div>
         )}
 
-        {/* Option 2: Manual private key input */}
+        {/* Option 2: Unlock with manually pasted RSA Private Key */}
         {showManualInput && (
           <motion.div
             initial={{ opacity: 0, y: 4 }}
@@ -279,7 +282,7 @@ export function PrivateKeyUnlock({
               />
             </div>
 
-            {/* Remember in session toggle */}
+            {/* Remember in session checkbox */}
             <label className="flex items-center gap-2.5 cursor-pointer select-none group">
               <input
                 type="checkbox"
@@ -319,7 +322,7 @@ export function PrivateKeyUnlock({
           </motion.div>
         )}
 
-        {/* Error display */}
+        {/* Error Notification Banner */}
         {errorToShow && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
@@ -332,7 +335,7 @@ export function PrivateKeyUnlock({
         )}
       </div>
 
-      {/* Security notice */}
+      {/* Zero-Knowledge Security Notice */}
       <p className="text-center text-[10px] text-muted-foreground leading-relaxed px-4">
         Your private key never leaves your browser. The AES decryption key is unwrapped in-memory
         using SubtleCrypto and immediately discarded after decryption.

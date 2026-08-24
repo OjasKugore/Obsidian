@@ -4,11 +4,8 @@
  * hooks/useAsymmetricEncryption.ts
  * ─────────────────────────────────────────────────────────────────────────────
  * Orchestration hook for the RSA-OAEP asymmetric encryption/decryption flow.
- *
- * Responsibilities:
- *   1. Identity key lifecycle (generate, load, check existence)
- *   2. Asymmetric encrypt: AES-256-GCM + RSA-OAEP key wrap → adata[4]
- *   3. Asymmetric decrypt: RSA-OAEP unwrap → raw AES key → cipher.decrypt
+ * Manages RSA-2048 identity key lifecycle in IndexedDB and provides methods
+ * for recipient-targeted encryption and decryption.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -29,8 +26,6 @@ import {
 import { encrypt, decrypt } from '@/lib/crypto/cipher';
 import type { AdataSchema, Expiry } from '@/lib/api/schemas';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export interface AsymEncryptOptions {
   formatter?: 'plaintext' | 'markdown' | 'syntaxhighlighting';
   expire?: Expiry;
@@ -39,23 +34,24 @@ export interface AsymEncryptOptions {
 }
 
 export interface AsymEncryptResult {
-  /** Base64 AES-256-GCM ciphertext */
   ciphertext: string;
-  /** Full adata array with adata[4] = RSA-OAEP wrapped AES key */
   adata: AdataSchema;
-  /** Share URL fragment is always "#asym" — no key in URL */
   fragment: '#asym';
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export function useAsymmetricEncryption() {
+  // ── STATE ──────────────────────────────────────────────────────────────
+
+  // RSA-2048 Identity Key record (contains public key base64, private CryptoKey, and fingerprint)
   const [identityKey, setIdentityKey] = useState<IdentityKeyRecord | null>(null);
+
+  // Loading state flag while retrieving key from browser IndexedDB
   const [isLoadingKey, setIsLoadingKey] = useState(true);
+
+  // Error message state if key generation fails
   const [keyError, setKeyError] = useState<string | null>(null);
 
-  // ── Load identity key on mount ─────────────────────────────────────────────
-
+  // Loads identity key from IndexedDB on component mount
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -74,8 +70,9 @@ export function useAsymmetricEncryption() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Generate identity key ──────────────────────────────────────────────────
+  // ── ACTIONS & CRYPTO LOGIC ──────────────────────────────────────────────
 
+  // Generates a new RSA-2048 keypair and saves it to local IndexedDB storage
   const generateIdentityKey = useCallback(async (): Promise<IdentityKeyRecord | null> => {
     setKeyError(null);
     try {
@@ -89,26 +86,13 @@ export function useAsymmetricEncryption() {
     }
   }, []);
 
-  // ── Purge identity key ─────────────────────────────────────────────────────
-
+  // Purges stored RSA keypair from IndexedDB and clears local state
   const purgeIdentityKey = useCallback(async (): Promise<void> => {
     await purgeKeys();
     setIdentityKey(null);
   }, []);
 
-  // ── Encrypt asymmetrically ─────────────────────────────────────────────────
-
-  /**
-   * Encrypts plaintext for a specific recipient public key.
-   *
-   * Flow:
-   *   1. AES-256-GCM encrypt (same Tier 1 engine)
-   *   2. Import recipient's RSA public key
-   *   3. wrapKey(rawAES, rsaPub) → base64 → adata[4]
-   *   4. Return { ciphertext, adata (with adata[4]), fragment: '#asym' }
-   *
-   * The caller (usePasteEncryption) POSTs this to the server with recipientMode: true.
-   */
+  // Encrypts plaintext with AES-256-GCM and wraps the raw AES key using the recipient's RSA public key (stored in adata[4])
   const encryptAsymmetric = useCallback(
     async (
       plaintext: string,
@@ -155,16 +139,7 @@ export function useAsymmetricEncryption() {
     []
   );
 
-  // ── Decrypt asymmetrically ─────────────────────────────────────────────────
-
-  /**
-   * Decrypts an asymmetric paste using the recipient's RSA private key.
-   *
-   * @param ciphertext  - Base64 AES-GCM ciphertext from server
-   * @param adata       - Full adata array (adata[4] = RSA-OAEP wrapped AES key)
-   * @param privateKey  - CryptoKey from IndexedDB or manually imported
-   * @returns           Decrypted plaintext
-   */
+  // Decrypts an asymmetric paste using a provided RSA private key
   const decryptAsymmetric = useCallback(
     async (
       ciphertext: string,
@@ -194,9 +169,7 @@ export function useAsymmetricEncryption() {
     []
   );
 
-  /**
-   * Convenience: decrypt using identity key from IndexedDB.
-   */
+  // Decrypts paste using the active stored identity private key from IndexedDB
   const decryptWithIdentityKey = useCallback(
     async (ciphertext: string, adata: AdataSchema): Promise<string> => {
       if (!identityKey) {
@@ -209,10 +182,7 @@ export function useAsymmetricEncryption() {
     [identityKey, decryptAsymmetric]
   );
 
-  /**
-   * Import a private key from a base64 string provided by the user,
-   * then decrypt the paste. Optionally persist to sessionStorage for the session.
-   */
+  // Imports a base64 PKCS8 RSA private key and uses it to decrypt the paste
   const decryptWithImportedKey = useCallback(
     async (
       ciphertext: string,
@@ -238,26 +208,18 @@ export function useAsymmetricEncryption() {
     [decryptAsymmetric]
   );
 
+  // ── RETURN ─────────────────────────────────────────────────────────────
+
   return {
-    /** Current identity key (null if not yet generated) */
     identityKey,
-    /** True while loading from IndexedDB on mount */
     isLoadingKey,
-    /** Error from key generation */
     keyError,
-    /** Generate a fresh RSA-2048 keypair and store it */
     generateIdentityKey,
-    /** Wipe the identity key from IndexedDB */
     purgeIdentityKey,
-    /** Encrypt for a recipient using their public key */
     encryptAsymmetric,
-    /** Decrypt using the stored identity private key */
     decryptWithIdentityKey,
-    /** Decrypt using an imported base64 private key */
     decryptWithImportedKey,
-    /** Raw decrypt with an explicit CryptoKey */
     decryptAsymmetric,
-    /** Check whether any identity key exists */
     hasIdentityKey,
   };
 }

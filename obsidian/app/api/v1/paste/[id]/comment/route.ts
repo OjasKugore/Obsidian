@@ -1,11 +1,10 @@
 /**
  * app/api/v1/paste/[id]/comment/route.ts
- * POST /api/v1/paste/[id]/comment — Add an encrypted comment
- * GET  /api/v1/paste/[id]/comment — List comments for a paste
  * ─────────────────────────────────────────────────────────────────────────────
- * Comments are stored encrypted (same AES-256-GCM cipher as the paste itself).
- * The server never sees plaintext. Comment threads only work on pastes with
- * openDiscussion=true.
+ * API Route Endpoint Handler.
+ * HTTP Methods:
+ *   - POST /api/v1/paste/[id]/comment : Post end-to-end encrypted discussion comment
+ *   - GET  /api/v1/paste/[id]/comment : List encrypted discussion thread comments
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -14,7 +13,7 @@ import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { CreateCommentBodySchema } from '@/lib/api/schemas';
 
-// ── POST ──────────────────────────────────────────────────────────────────────
+// ── POST /api/v1/paste/[id]/comment ───────────────────────────────
 
 export async function POST(
   request: NextRequest,
@@ -22,12 +21,13 @@ export async function POST(
 ): Promise<NextResponse> {
   const { id: pasteId } = await params;
 
+  // Step 1: IP Rate limiting check
   const rl = await checkRateLimit(request);
   if (!rl.success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  // Validate paste exists and has open discussion enabled
+  // Step 2: Validate target paste existence and openDiscussion permission
   const paste = await prisma.paste.findUnique({
     where: { id: pasteId },
     select: { openDiscussion: true },
@@ -42,6 +42,7 @@ export async function POST(
     );
   }
 
+  // Step 3: Request body parsing and Zod schema validation
   let body: unknown;
   try {
     body = await request.json();
@@ -59,6 +60,7 @@ export async function POST(
 
   const { ct, adata, parentId, icon } = parsed.data;
 
+  // Step 4: Write encrypted comment record to PostgreSQL database
   const comment = await prisma.comment.create({
     data: {
       pasteId,
@@ -69,6 +71,7 @@ export async function POST(
     },
   });
 
+  // Step 5: Return 201 Created JSON response
   return NextResponse.json(
     {
       id: comment.id,
@@ -83,7 +86,7 @@ export async function POST(
   );
 }
 
-// ── GET ───────────────────────────────────────────────────────────────────────
+// ── GET /api/v1/paste/[id]/comment ────────────────────────────────
 
 export async function GET(
   request: NextRequest,
@@ -91,11 +94,13 @@ export async function GET(
 ): Promise<NextResponse> {
   const { id: pasteId } = await params;
 
+  // Step 1: IP Rate limiting check
   const rl = await checkRateLimit(request);
   if (!rl.success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
+  // Step 2: Validate target paste existence and openDiscussion permission
   const paste = await prisma.paste.findUnique({
     where: { id: pasteId },
     select: { openDiscussion: true },
@@ -110,11 +115,13 @@ export async function GET(
     );
   }
 
+  // Step 3: Fetch all encrypted comments for thread ordered chronologically
   const comments = await prisma.comment.findMany({
     where: { pasteId },
     orderBy: { createdAt: 'asc' },
   });
 
+  // Step 4: Return JSON comments list response
   return NextResponse.json(
     comments.map((c) => ({
       id: c.id,

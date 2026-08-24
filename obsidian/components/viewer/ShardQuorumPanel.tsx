@@ -4,6 +4,7 @@
  * components/viewer/ShardQuorumPanel.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Interactive multi-party quorum collection panel.
+ * Collects and visualizes Shamir key shards until threshold (K) is satisfied.
  * Strict monochrome styling matching Obsidian design standards.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -39,18 +40,29 @@ export function ShardQuorumPanel({
   isDecrypting,
   error: parentError,
 }: ShardQuorumPanelProps) {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Input field state for entering additional shard tokens or URLs
   const [shardInput, setShardInput] = React.useState('');
+  
+  // Submission loading state and error message
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [inputError, setInputError] = React.useState<string | null>(null);
 
+  // Set of unique shard indices already collected and loaded into memory
   const loadedSet = React.useMemo(
     () => new Set(loadedShards.map((s) => s.index)),
     [loadedShards]
   );
+  
+  // Computed progress calculations (current count vs required threshold)
   const currentCount = loadedShards.length;
   const neededCount = Math.max(0, threshold - currentCount);
   const progressPercent = Math.min(100, Math.round((currentCount / threshold) * 100));
 
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Validates and ingests new shard token or URL into the quorum pool
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shardInput.trim() || isSubmitting) return;
@@ -72,6 +84,8 @@ export function ShardQuorumPanel({
     }
   };
 
+  // ── UI ─────────────────────────────────────────────────────────────────
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.98, y: 12 }}
@@ -79,8 +93,9 @@ export function ShardQuorumPanel({
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="w-full max-w-2xl mx-auto flex flex-col gap-6 font-mono"
     >
+      {/* Main Quorum Card Container */}
       <div className="rounded-lg border border-border bg-card p-6 sm:p-8 flex flex-col gap-6 shadow-xl relative overflow-hidden">
-        {/* Header */}
+        {/* Header Bar */}
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-border">
           <div className="flex items-center gap-3.5">
             <div className="flex h-10 w-10 items-center justify-center rounded bg-muted border border-border text-foreground">
@@ -102,7 +117,7 @@ export function ShardQuorumPanel({
           </div>
         </div>
 
-        {/* Progress Bar & Status */}
+        {/* Quorum Progress Bar & Status Counter */}
         <div className="flex flex-col gap-2.5 p-4 rounded bg-muted/30 border border-border">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
@@ -115,7 +130,7 @@ export function ShardQuorumPanel({
             </span>
           </div>
 
-          {/* Progress bar line */}
+          {/* Animated Quorum Bar */}
           <div className="w-full h-2 rounded bg-muted overflow-hidden relative border border-border">
             <motion.div
               initial={{ width: 0 }}
@@ -135,7 +150,7 @@ export function ShardQuorumPanel({
           </div>
         </div>
 
-        {/* Shard Slots Visualizer */}
+        {/* Shard Slots Grid Visualizer */}
         <div className="flex flex-col gap-2">
           <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Distributed Shard Slots
@@ -177,7 +192,7 @@ export function ShardQuorumPanel({
           </div>
         </div>
 
-        {/* Input Form for Ingesting More Shards */}
+        {/* Shard Input Form */}
         <form onSubmit={handleAdd} className="flex flex-col gap-3">
           <label
             htmlFor="shard-token-input"
@@ -227,7 +242,7 @@ export function ShardQuorumPanel({
           </AnimatePresence>
         </form>
 
-        {/* Info Callout */}
+        {/* Information Security Banner */}
         <div className="rounded bg-muted/20 border border-border p-3.5 text-xs text-muted-foreground flex items-start gap-3">
           <div className="p-1 rounded bg-muted text-foreground shrink-0 mt-0.5">
             <Info className="h-4 w-4" />

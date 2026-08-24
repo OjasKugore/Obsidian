@@ -1,84 +1,71 @@
 /**
  * lib/crypto/cipher.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Tier 1 AES-256-GCM encryption engine.
+ * Tier 1 AES-256-GCM Encryption & Decryption Engine.
  *
- * This is the PRIMARY export Member C imports. It is the only file in lib/crypto/
- * that C is allowed to touch. It internally uses kdf.ts, compress.ts, encoding.ts
- * but C never imports those directly.
- *
- * Security constraints enforced here:
+ * Core security constraints:
  *   §1  AES-256-GCM via SubtleCrypto
- *   §2  PBKDF2-SHA256, ≥ 100k iterations (called inline here; Worker wraps this)
+ *   §2  PBKDF2-SHA256, ≥ 100k iterations (derived inline via kdf.ts)
  *   §4  v2 wire format: adata[0] = [iv, salt, iter, 256, 128, 'aes', 'gcm', compression]
  *
- * Zero DOM deps — pure SubtleCrypto + Web Streams (Node.js ≥ 18).
+ * Zero DOM dependencies — pure SubtleCrypto + Web Streams API.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { deriveKey } from './kdf';
+import { deriveKey, assertSubtleCrypto } from './kdf';
 import { tryCompress, decompress } from './compress';
 import { toBase64, fromBase64 } from './encoding';
 import type { AdataSchema } from '@/lib/api/schemas';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── CIPHER PARAMETERS & ENGINE CONSTANTS ────────────────────────────
 
 const ITERATIONS = 100_000;
 const KEY_SIZE   = 256; // bits
-const TAG_SIZE   = 128; // bits (GCM auth tag)
-const IV_BYTES   = 16;  // 128-bit IV
-const SALT_BYTES = 8;   // 64-bit salt
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+const TAG_SIZE   = 128; // bits (GCM authentication tag length)
+const IV_BYTES   = 16;  // 128-bit initialization vector
+const SALT_BYTES = 8;   // 64-bit random salt
 
 export type EncryptResult = {
-  /** Base64 AES-GCM ciphertext (to POST as `ct`) */
+  /** Base64 AES-GCM ciphertext (POSTed to server as `ct`) */
   ciphertext: string;
-  /** Full v2 adata array (to POST as `adata`) */
+  /** Full v2 adata array (POSTed to server as `adata`) */
   adata: AdataSchema;
-  /** Non-extractable CryptoKey (for in-memory use) */
+  /** Non-extractable CryptoKey (held in browser memory) */
   key: CryptoKey;
-  /** Raw 32-byte key — goes in URL #fragment as base58 */
+  /** Raw 32-byte key — encoded in URL fragment (#key) */
   rawKey: Uint8Array;
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── HELPER UTILITIES ──────────────────────────────────────────────────
 
-/**
- * Casts a Uint8Array to the ArrayBuffer-backed variant required by SubtleCrypto.
- * TS 5.x tightened Uint8Array<ArrayBufferLike> → Uint8Array<ArrayBuffer>.
- * .slice() always returns a new Uint8Array backed by a plain ArrayBuffer.
- */
+/** Casts a Uint8Array to the ArrayBuffer-backed type required by SubtleCrypto */
 function buf(u: Uint8Array): Uint8Array<ArrayBuffer> {
   return u.buffer instanceof ArrayBuffer
     ? (u as unknown as Uint8Array<ArrayBuffer>)
     : (new Uint8Array(u) as unknown as Uint8Array<ArrayBuffer>);
 }
 
-/** Generates cryptographically random bytes */
+/** Generates cryptographically secure random bytes using Web Crypto API */
 function randomBytes(n: number): Uint8Array {
+  assertSubtleCrypto();
   const arr = new Uint8Array(n);
   crypto.getRandomValues(arr);
   return arr;
 }
 
-/**
- * Exports a CryptoKey to its raw bytes.
- * Only works when the key was created with extractable=true.
- */
+/** Exports extractable CryptoKey to raw Uint8Array byte buffer */
 async function exportRawKey(key: CryptoKey): Promise<Uint8Array> {
+  assertSubtleCrypto();
   const raw = await crypto.subtle.exportKey('raw', key);
   return new Uint8Array(raw);
 }
 
-/**
- * Imports a raw 32-byte Uint8Array as an AES-256-GCM CryptoKey.
- * Used in decrypt() and for encrypting comments under the shared key.
- */
+/** Imports a raw 32-byte Uint8Array buffer into an AES-256-GCM CryptoKey */
 async function importRawKey(
   raw: Uint8Array,
   usages: KeyUsage[] = ['encrypt', 'decrypt']
 ): Promise<CryptoKey> {
+  assertSubtleCrypto();
   return crypto.subtle.importKey(
     'raw',
     buf(raw),
@@ -88,22 +75,17 @@ async function importRawKey(
   );
 }
 
-// ── encrypt ───────────────────────────────────────────────────────────────────
+// ── AES-256-GCM ENCRYPTION ────────────────────────────────────────────
 
 /**
- * Encrypts a plaintext string using AES-256-GCM.
+ * Encrypts plaintext string using AES-256-GCM authenticated encryption.
  *
  * Flow:
  *   1. Generate random 16-byte IV and 8-byte salt
- *   2. Derive 32-byte AES key from PBKDF2-SHA256(password|random, salt, 100k)
- *   3. Compress plaintext (deflate-raw; falls back to 'none' if larger)
- *   4. AES-256-GCM encrypt with additionalData = JSON.stringify(adata[0])
- *   5. Return ciphertext (base64), adata, key (CryptoKey), rawKey (Uint8Array)
- *
- * @param plaintext - UTF-8 text to encrypt
- * @param formatter - adata[1] content type (default 'plaintext')
- * @param options   - Optional: burnAfterReading, openDiscussion
- * @returns         EncryptResult
+ *   2. Derive 32-byte AES key from PBKDF2-SHA256(random_password, salt, 100k)
+ *   3. Compress plaintext using deflate-raw stream compression
+ *   4. AES-256-GCM encrypt with authenticated additionalData = JSON.stringify(adata[0])
+ *   5. Return base64 ciphertext, adata schema, CryptoKey, and raw byte key
  */
 export async function encrypt(
   plaintext: string,
@@ -114,13 +96,14 @@ export async function encrypt(
     customKey?: Uint8Array;
   } = {}
 ): Promise<EncryptResult> {
+  assertSubtleCrypto();
   const { burnAfterReading = true, openDiscussion = false, customKey } = options;
 
-  // 1. Generate IV and salt
+  // 1. Generate random IV and salt
   const iv   = randomBytes(IV_BYTES);
   const salt = randomBytes(SALT_BYTES);
 
-  // 2. Derive AES key (or import provided shared key for comments)
+  // 2. Derive AES key or import custom key
   let key: CryptoKey;
   let rawKey: Uint8Array;
 
@@ -129,19 +112,19 @@ export async function encrypt(
     key = await importRawKey(customKey);
   } else {
     key = await deriveKey(
-      randomBytes(32), // random 32-byte password (symmetric direct mode)
+      randomBytes(32),
       salt,
       ITERATIONS
     );
     rawKey = await exportRawKey(key);
   }
 
-  // 3. Compress plaintext
+  // 3. Compress plaintext bytes
   const encoder   = new TextEncoder();
   const plainBytes = encoder.encode(plaintext);
   const { data: compressed, method } = await tryCompress(plainBytes);
 
-  // 4. Build adata[0] spec — this becomes the AAD for AES-GCM
+  // 4. Construct authenticated adata[0] specification header
   const spec: AdataSchema[0] = [
     toBase64(iv),
     toBase64(salt),
@@ -160,10 +143,9 @@ export async function encrypt(
     burnAfterReading ? 1 : 0,
   ];
 
-  // additionalData = the spec array serialized — authenticated but not encrypted
   const aad = new TextEncoder().encode(JSON.stringify(spec));
 
-  // 5. AES-256-GCM encrypt
+  // 5. Execute AES-256-GCM encryption
   const ciphertextBuffer = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: buf(iv), additionalData: buf(aad), tagLength: TAG_SIZE },
     key,
@@ -178,37 +160,33 @@ export async function encrypt(
   };
 }
 
-// ── decrypt ───────────────────────────────────────────────────────────────────
+// ── AES-256-GCM DECRYPTION ────────────────────────────────────────────
 
 /**
- * Decrypts an AES-256-GCM ciphertext using the provided key.
+ * Decrypts AES-256-GCM ciphertext using either a CryptoKey or raw 32-byte key buffer.
  *
- * Accepts either:
- *   - A CryptoKey (for in-memory round-trips)
- *   - A raw 32-byte Uint8Array (decoded from the URL #fragment)
- *
- * @param ciphertext - Base64 AES-GCM ciphertext (the `ct` field from the server)
- * @param adata      - Full v2 adata array (the `adata` field from the server)
- * @param keyOrRaw   - CryptoKey or raw 32-byte Uint8Array
- * @returns          Decrypted plaintext string
- * @throws           If decryption fails (wrong key, tampered adata, etc.)
+ * Flow:
+ *   1. Unpack IV, salt, and compression algorithm from adata[0]
+ *   2. Reconstruct authenticated additionalData (AAD)
+ *   3. Execute SubtleCrypto.decrypt using AES-256-GCM
+ *   4. Decompress decrypted bytes if compression was used
+ *   5. Decode UTF-8 plaintext string
  */
 export async function decrypt(
   ciphertext: string,
   adata: AdataSchema,
   keyOrRaw: CryptoKey | Uint8Array
 ): Promise<string> {
+  assertSubtleCrypto();
   const spec = adata[0];
   const iv         = fromBase64(spec[0]);
-  const compression = spec[7]; // 'zlib' | 'none'
+  const compression = spec[7];
 
-  // Resolve key
   const key: CryptoKey =
     keyOrRaw instanceof CryptoKey
       ? keyOrRaw
       : await importRawKey(keyOrRaw);
 
-  // AAD must match exactly what was used during encryption
   const aad = new TextEncoder().encode(JSON.stringify(spec));
 
   let decryptedBuffer: ArrayBuffer;
@@ -224,7 +202,6 @@ export async function decrypt(
     );
   }
 
-  // Decompress if needed
   let plainBytes: Uint8Array = new Uint8Array(decryptedBuffer);
   if (compression === 'zlib') {
     plainBytes = await decompress(buf(plainBytes));
@@ -233,16 +210,7 @@ export async function decrypt(
   return new TextDecoder().decode(plainBytes);
 }
 
-// ── decryptWithPassword ───────────────────────────────────────────────────────
-
-/**
- * Derives the AES key from PBKDF2 and decrypts.
- * Used when the raw key is in the URL fragment as base58.
- *
- * @param ciphertext - Base64 AES-GCM ciphertext
- * @param adata      - Full v2 adata array
- * @param rawKey     - 32-byte key decoded from URL #fragment via fromBase58()
- */
+/** Decrypts paste ciphertext using raw key Uint8Array derived from URL hash fragment */
 export async function decryptWithRawKey(
   ciphertext: string,
   adata: AdataSchema,
@@ -251,6 +219,5 @@ export async function decryptWithRawKey(
   return decrypt(ciphertext, adata, rawKey);
 }
 
-// Re-export toBase58/fromBase58 so Member C can encode/decode the URL fragment
-// without importing from encoding.ts directly.
+// Re-export Base58 helpers for URL fragment key handling
 export { toBase58, fromBase58 } from './encoding';

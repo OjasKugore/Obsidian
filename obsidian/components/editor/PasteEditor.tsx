@@ -43,33 +43,36 @@ interface PasteEditorProps {
 }
 
 export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
-  // Core content & format state
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Editor text & format state (holds the typed text, selected syntax/format, and write/preview mode)
   const [content, setContent] = React.useState('');
   const [formatter, setFormatter] = React.useState<Formatter>('plaintext');
   const [editorTab, setEditorTab] = React.useState<'write' | 'preview'>('write');
 
-  // Delivery configuration
+  // Recipient & key delivery options (switches between single recipient and multi-user secret sharing)
   const [deliveryTarget, setDeliveryTarget] = React.useState<'single' | 'multiple'>('single');
   const [singleSubMode, setSingleSubMode] = React.useState<'symmetric' | 'asymmetric'>('symmetric');
   const [recipientPublicKey, setRecipientPublicKey] = React.useState('');
   const [validRecipientKey, setValidRecipientKey] = React.useState<string | null>(null);
 
-  // Shamir Quorum Configuration (N-of-K)
+  // Shamir secret sharing quorum config (sets minimum required key shares vs total generated shares)
   const [threshold, setThreshold] = React.useState<number>(2);
   const [totalShares, setTotalShares] = React.useState<number>(3);
 
-  // Security options
+  // Expiration & security toggles (handles expiration timers, burn-after-reading, and discussion threads)
   const [expire, setExpire] = React.useState<Expiry>('1day');
   const [burnAfterReading, setBurnAfterReading] = React.useState(false);
   const [openDiscussion, setOpenDiscussion] = React.useState(false);
 
-  // UI helpers
+  // Temporary UI state (tracks whether copy button was recently clicked)
   const [copied, setCopied] = React.useState(false);
 
+  // Computed mode flags (quick checks to see if asymmetric encryption or Shamir sharing is active)
   const isAsymmetric = deliveryTarget === 'single' && singleSubMode === 'asymmetric';
   const isShamir = deliveryTarget === 'multiple';
 
-  // Derived metrics
+  // Real-time text metrics (calculates line count, character count, and file size in KB)
   const lineCount = React.useMemo(
     () => (content ? content.split('\n').length : 1),
     [content]
@@ -80,8 +83,9 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     [content]
   );
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── ACTIONS ────────────────────────────────────────────────────────────
 
+  // Changes active format (Plain text, Markdown, or Code)
   const handleFormatterChange = (next: Formatter) => {
     setFormatter(next);
     if (next !== 'markdown') {
@@ -89,6 +93,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     }
   };
 
+  // Copies editor text directly to the system clipboard
   const handleCopy = async () => {
     if (!content) return;
     try {
@@ -100,6 +105,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     }
   };
 
+  // Triggers browser download of editor content as a text file
   const handleDownload = () => {
     if (!content) return;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -111,11 +117,13 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     URL.revokeObjectURL(url);
   };
 
+  // Clears the editor text area and resets view
   const handleClear = () => {
     setContent('');
     setEditorTab('write');
   };
 
+  // Submits paste data and configuration options to the encryption engine
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isLoading) return;
@@ -133,6 +141,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     });
   };
 
+  // Keyboard shortcut handler (Cmd/Ctrl + Enter to trigger submission)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -140,6 +149,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     }
   };
 
+  // Adjusts Shamir threshold count while keeping threshold <= total shares
   const handleThresholdChange = (val: number) => {
     setThreshold(val);
     if (val > totalShares) {
@@ -147,6 +157,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     }
   };
 
+  // Adjusts total Shamir shares count while keeping total shares >= threshold
   const handleTotalSharesChange = (val: number) => {
     setTotalShares(val);
     if (val < threshold) {
@@ -154,15 +165,18 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
     }
   };
 
+  // Dynamic tab label generator based on selected format
   const getFilename = () => {
     if (formatter === 'markdown') return 'DOCUMENT.MD';
     if (formatter === 'syntaxhighlighting') return 'SOURCE.CODE';
     return 'UNTITLED.TXT';
   };
 
+  // ── UI ─────────────────────────────────────────────────────────────────
+
   return (
     <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6 font-mono">
-      {/* ── Headline Row ─────────────────────────────────────────────────── */}
+      {/* Page Header Title */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-3 border-b border-border/80">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -174,13 +188,13 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
         </div>
       </div>
 
-      {/* ── Main Two-Column Layout: Code Canvas + Delivery Sidebar ────────── */}
+      {/* Main Grid Layout (Left: Editor Window, Right: Security Sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* ── Left Column: Code Editor Canvas (8 Cols) ───────────────────── */}
+        {/* Left Column - Code Editor Window */}
         <div className="lg:col-span-8 flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card/90 shadow-xl soft-shadow focus-within:border-foreground/40 transition-all">
-          {/* Window Chrome Header */}
+          {/* Editor Top Toolbar & Format Selector */}
           <div className="h-10 border-b border-border flex items-center px-4 justify-between bg-muted/60 select-none">
-            {/* Mac-style Window Dots + Filename */}
+            {/* Window Controls & Active Filename */}
             <div className="flex items-center gap-3">
               <div className="flex gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30 border border-border/60" />
@@ -192,52 +206,49 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </span>
             </div>
 
-            {/* Format Selector + Tools */}
+            {/* Format Buttons (Plain / Markdown / Code) */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded border border-border">
                 <button
                   type="button"
                   onClick={() => handleFormatterChange('plaintext')}
-                  className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${
-                    formatter === 'plaintext'
+                  className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${formatter === 'plaintext'
                       ? 'bg-muted text-foreground font-bold shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   Plain
                 </button>
                 <button
                   type="button"
                   onClick={() => handleFormatterChange('markdown')}
-                  className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${
-                    formatter === 'markdown'
+                  className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${formatter === 'markdown'
                       ? 'bg-muted text-foreground font-bold shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   Markdown
                 </button>
                 <button
                   type="button"
                   onClick={() => handleFormatterChange('syntaxhighlighting')}
-                  className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${
-                    formatter === 'syntaxhighlighting'
+                  className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors cursor-pointer ${formatter === 'syntaxhighlighting'
                       ? 'bg-muted text-foreground font-bold shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   Code
                 </button>
               </div>
 
+              {/* Write / Preview Tab Switcher for Markdown */}
               {formatter === 'markdown' && (
                 <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded border border-border">
                   <button
                     type="button"
                     onClick={() => setEditorTab('write')}
-                    className={`px-1.5 py-0.5 text-[10px] font-mono rounded cursor-pointer ${
-                      editorTab === 'write' ? 'bg-muted text-foreground font-bold shadow-sm' : 'text-muted-foreground'
-                    }`}
+                    className={`px-1.5 py-0.5 text-[10px] font-mono rounded cursor-pointer ${editorTab === 'write' ? 'bg-muted text-foreground font-bold shadow-sm' : 'text-muted-foreground'
+                      }`}
                   >
                     <PenLine className="h-3 w-3 inline mr-1" />
                     Write
@@ -245,9 +256,8 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   <button
                     type="button"
                     onClick={() => setEditorTab('preview')}
-                    className={`px-1.5 py-0.5 text-[10px] font-mono rounded cursor-pointer ${
-                      editorTab === 'preview' ? 'bg-muted text-foreground font-bold shadow-sm' : 'text-muted-foreground'
-                    }`}
+                    className={`px-1.5 py-0.5 text-[10px] font-mono rounded cursor-pointer ${editorTab === 'preview' ? 'bg-muted text-foreground font-bold shadow-sm' : 'text-muted-foreground'
+                      }`}
                   >
                     <Eye className="h-3 w-3 inline mr-1" />
                     Preview
@@ -255,6 +265,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                 </div>
               )}
 
+              {/* Copy & Download Quick Action Buttons */}
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <button
                   type="button"
@@ -276,9 +287,9 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             </div>
           </div>
 
-          {/* Editor Body with Line Numbers */}
+          {/* Editor Canvas (Line Numbers & Textarea) */}
           <div className="flex flex-grow min-h-[440px] relative overflow-hidden bg-card">
-            {/* Line Numbers Gutter */}
+            {/* Line Numbers Sidebar Gutter */}
             <div className="w-12 shrink-0 bg-muted/40 border-r border-border py-4 flex flex-col items-end pr-2.5 text-muted-foreground/70 font-mono text-xs select-none">
               {Array.from({ length: Math.max(lineCount, 16) }).map((_, i) => (
                 <div key={i} className="leading-relaxed">
@@ -287,7 +298,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               ))}
             </div>
 
-            {/* Content Area */}
+            {/* Text Input Canvas / Markdown Preview Render */}
             <div className="flex-1 relative bg-card">
               {formatter === 'markdown' && editorTab === 'preview' ? (
                 <div className="w-full h-full min-h-[440px] p-4 text-foreground overflow-y-auto">
@@ -309,7 +320,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
             </div>
           </div>
 
-          {/* Canvas Bottom Status Bar */}
+          {/* Status Bar (Lines, Characters, Bytes Counter) */}
           <div className="h-8 border-t border-border bg-muted/60 px-4 flex items-center justify-between text-[11px] font-mono text-muted-foreground select-none">
             <div className="flex items-center gap-3">
               <span>{lineCount} {lineCount === 1 ? 'line' : 'lines'}</span>
@@ -325,11 +336,10 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
           </div>
         </div>
 
-        {/* ── Right Column: Delivery & Security Sidebar (4 Cols) ─────────── */}
+        {/* Right Column - Delivery & Security Sidebar */}
         <div className="lg:col-span-4 flex flex-col gap-4">
-          {/* Sidebar Card */}
           <div className="border border-border/80 rounded-xl p-4 bg-card/90 flex flex-col gap-4 shadow-xl soft-shadow">
-            {/* Sidebar Title */}
+            {/* Sidebar Header */}
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-foreground" />
@@ -339,16 +349,15 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </div>
             </div>
 
-            {/* Mode Switcher Pills */}
+            {/* Single vs Multiple Recipients Mode Switcher */}
             <div className="grid grid-cols-2 gap-1 p-1 bg-background/80 rounded-lg border border-border">
               <button
                 type="button"
                 onClick={() => setDeliveryTarget('single')}
-                className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-mono transition-all cursor-pointer ${
-                  deliveryTarget === 'single'
+                className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-mono transition-all cursor-pointer ${deliveryTarget === 'single'
                     ? 'bg-muted text-foreground font-bold shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 <User className="h-3.5 w-3.5" />
                 <span>Single</span>
@@ -357,21 +366,20 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               <button
                 type="button"
                 onClick={() => setDeliveryTarget('multiple')}
-                className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-mono transition-all cursor-pointer ${
-                  deliveryTarget === 'multiple'
+                className={`flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-mono transition-all cursor-pointer ${deliveryTarget === 'multiple'
                     ? 'bg-muted text-foreground font-bold shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 <Users className="h-3.5 w-3.5" />
                 <span>Multiple</span>
               </button>
             </div>
 
-            {/* Mode Specific Configurations */}
+            {/* Delivery Mode Configuration Controls */}
             <AnimatePresence mode="wait">
               {deliveryTarget === 'single' ? (
-                /* Single User Configuration */
+                /* Single Mode - Symmetric URL Hash vs Asymmetric RSA Key Options */
                 <motion.div
                   key="sidebar-single"
                   initial={{ opacity: 0, y: 4 }}
@@ -380,14 +388,13 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   className="flex flex-col gap-3"
                 >
                   <div className="flex flex-col gap-2">
-                    {/* Symmetric Fragment */}
+                    {/* Symmetric URL Hash Card */}
                     <div
                       onClick={() => setSingleSubMode('symmetric')}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 ${
-                        singleSubMode === 'symmetric'
+                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 ${singleSubMode === 'symmetric'
                           ? 'bg-muted/80 border-foreground/50 shadow-sm'
                           : 'bg-muted/30 border-border hover:border-border/80 hover:bg-muted/50'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2 text-xs font-mono font-medium text-foreground">
                         <Key className="h-3.5 w-3.5 text-foreground" />
@@ -398,14 +405,13 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                       </p>
                     </div>
 
-                    {/* Asymmetric RSA-OAEP */}
+                    {/* RSA Public Key Card */}
                     <div
                       onClick={() => setSingleSubMode('asymmetric')}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 ${
-                        singleSubMode === 'asymmetric'
+                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col gap-1 ${singleSubMode === 'asymmetric'
                           ? 'bg-muted/80 border-foreground/50 shadow-sm'
                           : 'bg-muted/30 border-border hover:border-border/80 hover:bg-muted/50'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2 text-xs font-mono font-medium text-foreground">
                         <ShieldCheck className="h-3.5 w-3.5 text-foreground" />
@@ -417,7 +423,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                     </div>
                   </div>
 
-                  {/* Asymmetric key input */}
+                  {/* Recipient Public Key Input Field */}
                   {singleSubMode === 'asymmetric' && (
                     <RecipientKeyInput
                       value={recipientPublicKey}
@@ -427,7 +433,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   )}
                 </motion.div>
               ) : (
-                /* Multiple Users Shamir Quorum Configuration */
+                /* Multiple Mode - Shamir Threshold Sliders (N-of-K) */
                 <motion.div
                   key="sidebar-multi"
                   initial={{ opacity: 0, y: 4 }}
@@ -435,6 +441,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                   exit={{ opacity: 0, y: -4 }}
                   className="flex flex-col gap-3"
                 >
+                  {/* Minimum Threshold Slider */}
                   <div className="p-3 rounded-lg border border-border bg-background/60 flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-muted-foreground">Threshold (K):</span>
@@ -453,6 +460,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                     </p>
                   </div>
 
+                  {/* Total Shares Slider */}
                   <div className="p-3 rounded-lg border border-border bg-background/60 flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-muted-foreground">Total Shares (N):</span>
@@ -471,6 +479,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                     </p>
                   </div>
 
+                  {/* Shamir Summary Note */}
                   <div className="p-2.5 rounded-lg bg-muted/40 border border-border text-[11px] font-mono text-muted-foreground flex items-start gap-2">
                     <Info className="h-3.5 w-3.5 text-foreground shrink-0 mt-0.5" />
                     <span>Any {threshold} of {totalShares} shares combined decrypt the paste.</span>
@@ -481,9 +490,9 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
 
             <div className="h-[1px] bg-border" />
 
-            {/* ── Security & Expiry Controls ──────────────────────────────── */}
+            {/* Expiration & Security Toggles Section */}
             <div className="flex flex-col gap-3">
-              {/* Expiration dropdown */}
+              {/* Expiration Dropdown */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                   Expiration
@@ -532,7 +541,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </label>
             </div>
 
-            {/* Error Display */}
+            {/* Error Banner */}
             {error && (
               <div className="p-2.5 rounded bg-destructive/10 border border-destructive/25 text-destructive text-xs font-mono flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -540,7 +549,7 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
               </div>
             )}
 
-            {/* Action Row */}
+            {/* Primary Action Buttons (Encrypt Submit & Clear) */}
             <div className="flex flex-col gap-2 pt-2 border-t border-border">
               <Button
                 type="submit"
@@ -563,8 +572,8 @@ export function PasteEditor({ onEncrypt, isLoading, error }: PasteEditorProps) {
                       {isShamir
                         ? `Secure Paste (${threshold}/${totalShares})`
                         : isAsymmetric
-                        ? 'Secure Paste for Recipient'
-                        : 'Secure Paste'}
+                          ? 'Secure Paste for Recipient'
+                          : 'Secure Paste'}
                     </span>
                   </>
                 )}

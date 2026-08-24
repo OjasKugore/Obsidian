@@ -1,30 +1,27 @@
 /**
  * lib/crypto/compress.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Compression using the CompressionStream / DecompressionStream Web API.
- * Falls back to 'none' if compression would make the payload larger.
+ * Compression using the Web Streams CompressionStream & DecompressionStream APIs.
+ * Automatically falls back to 'none' if compression increases payload byte size.
  *
- * Zero DOM deps — works in browser, Web Workers, and Node.js ≥ 18.
- *
- * Wire format: compression method is stored in adata[0][7] as 'zlib' | 'none'.
- * PrivateBin used 'zlib' to mean deflate-raw; we keep the same label for
- * wire-format compatibility.
+ * Zero DOM dependencies — works in Web Workers, Node.js ≥ 18, and modern browsers.
+ * Wire format: stored in adata[0][7] as 'zlib' | 'none'.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/**
- * Casts Uint8Array to ArrayBuffer-backed variant (TS 5.x SubtleCrypto compat).
- * CompressionStream writer also requires this stricter type.
- */
+// ── HELPER BUFFER CONVERTERS ──────────────────────────────────────────
+
+/** Casts Uint8Array to ArrayBuffer-backed variant required by Web Streams API */
 function buf(u: Uint8Array): Uint8Array<ArrayBuffer> {
   return u.buffer instanceof ArrayBuffer
     ? (u as unknown as Uint8Array<ArrayBuffer>)
     : (new Uint8Array(u) as unknown as Uint8Array<ArrayBuffer>);
 }
 
+// ── STREAM COMPRESSION & DECOMPRESSION ───────────────────────────────
+
 /**
- * Compresses data using deflate-raw (CompressionStream).
- * Throws if the runtime does not support CompressionStream.
+ * Compresses data using deflate-raw stream compression (CompressionStream API).
  */
 export async function compress(data: Uint8Array): Promise<Uint8Array> {
   const cs = new CompressionStream('deflate-raw');
@@ -33,7 +30,6 @@ export async function compress(data: Uint8Array): Promise<Uint8Array> {
 
   const chunks: Uint8Array[] = [];
 
-  // Write all data then close the stream
   const writePromise = (async () => {
     await writer.write(buf(data));
     await writer.close();
@@ -48,7 +44,6 @@ export async function compress(data: Uint8Array): Promise<Uint8Array> {
 
   await Promise.all([writePromise, readPromise]);
 
-  // Concatenate chunks into a single Uint8Array
   const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
   const result = new Uint8Array(totalLength);
   let offset = 0;
@@ -60,7 +55,7 @@ export async function compress(data: Uint8Array): Promise<Uint8Array> {
 }
 
 /**
- * Decompresses deflate-raw data using DecompressionStream.
+ * Decompresses deflate-raw compressed bytes (DecompressionStream API).
  */
 export async function decompress(data: Uint8Array): Promise<Uint8Array> {
   const ds = new DecompressionStream('deflate-raw');
@@ -94,12 +89,11 @@ export async function decompress(data: Uint8Array): Promise<Uint8Array> {
   return result;
 }
 
+// ── COMPRESSION STRATEGY PICKER ──────────────────────────────────────
+
 /**
- * Tries to compress data. If the compressed output is not smaller, returns
- * the original with method='none'. This prevents compression attacks on
- * small plaintexts where compression can actually increase size.
- *
- * @returns { data, method } where method is 'zlib' (compressed) or 'none'
+ * Evaluates plaintext size and compresses data.
+ * If compressed size is larger than uncompressed, returns original bytes with method='none'.
  */
 export async function tryCompress(
   data: Uint8Array
@@ -110,7 +104,7 @@ export async function tryCompress(
       return { data: compressed, method: 'zlib' };
     }
   } catch {
-    // CompressionStream not available (e.g. old Node.js) — fall through
+    // CompressionStream not available in environment — fall through
   }
   return { data, method: 'none' };
 }

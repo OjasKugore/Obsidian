@@ -32,16 +32,29 @@ import {
 } from '@/lib/crypto/keystore';
 
 export function IdentityPanel() {
+  // ── SETUP ──────────────────────────────────────────────────────────────
+
+  // Modal open/closed state
   const [isOpen, setIsOpen] = React.useState(false);
+
+  // RSA Identity key record (contains public key base64 & fingerprint)
   const [identityKey, setIdentityKey] = React.useState<IdentityKeyRecord | null>(null);
+
+  // Loading and generation state flags
   const [isLoading, setIsLoading] = React.useState(true);
   const [isGenerating, setIsGenerating] = React.useState(false);
+
+  // Copy success indicator flags
   const [copied, setCopied] = React.useState(false);
   const [copiedPriv, setCopiedPriv] = React.useState(false);
+
+  // Confirmation state for key regeneration
   const [showRegenerateConfirm, setShowRegenerateConfirm] = React.useState(false);
+
+  // Error message state
   const [error, setError] = React.useState<string | null>(null);
 
-  // Load identity key on mount
+  // Automatically loads saved identity key from IndexedDB on component mount
   React.useEffect(() => {
     loadIdentityKey()
       .then((record) => {
@@ -51,8 +64,17 @@ export function IdentityPanel() {
       .catch(() => setIsLoading(false));
   }, []);
 
-  // ── Generate key ─────────────────────────────────────────────────────────
+  // Formats 32-character fingerprint into colon-separated 4-char groups (e.g. A1B2:C3D4)
+  const formattedFp = identityKey
+    ? identityKey.fingerprint.match(/.{1,4}/g)?.join(':') ?? identityKey.fingerprint
+    : null;
 
+  // Key availability boolean check
+  const hasKey = !!identityKey && !isLoading;
+
+  // ── ACTIONS ────────────────────────────────────────────────────────────
+
+  // Generates a brand new RSA-2048 keypair and saves it to local browser storage
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -66,8 +88,7 @@ export function IdentityPanel() {
     }
   };
 
-  // ── Copy public key ───────────────────────────────────────────────────────
-
+  // Copies public key base64 string to clipboard
   const handleCopyPublicKey = async () => {
     if (!identityKey) return;
     try {
@@ -79,8 +100,7 @@ export function IdentityPanel() {
     }
   };
 
-  // ── Copy private key ──────────────────────────────────────────────────────
-
+  // Exports and copies private key base64 string to clipboard
   const handleCopyPrivateKey = async () => {
     try {
       const privKeyBase64 = await exportIdentityPrivateKeyBase64();
@@ -94,8 +114,7 @@ export function IdentityPanel() {
     }
   };
 
-  // ── Purge / Regenerate ────────────────────────────────────────────────────
-
+  // Purges old keypair from storage and generates a fresh RSA-2048 keypair
   const handlePurgeAndRegenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -111,17 +130,11 @@ export function IdentityPanel() {
     }
   };
 
-  // ── Formatted fingerprint ─────────────────────────────────────────────────
-
-  const formattedFp = identityKey
-    ? identityKey.fingerprint.match(/.{1,4}/g)?.join(':') ?? identityKey.fingerprint
-    : null;
-
-  const hasKey = !!identityKey && !isLoading;
+  // ── UI ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      {/* Header button */}
+      {/* Header Key Icon Trigger Button */}
       <button
         id="identity-panel-btn"
         type="button"
@@ -131,7 +144,7 @@ export function IdentityPanel() {
         title="RSA Identity Key"
       >
         <KeyRound className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-        {/* Status dot */}
+        {/* Identity Key Active Status Indicator Dot */}
         <span
           className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border border-background transition-colors ${
             isLoading
@@ -143,10 +156,11 @@ export function IdentityPanel() {
         />
       </button>
 
-      {/* Backdrop */}
+      {/* Modal Dialog Backdrop & Popup */}
       <AnimatePresence>
         {isOpen && (
           <>
+            {/* Dark Backdrop Overlay */}
             <motion.div
               key="backdrop"
               initial={{ opacity: 0 }}
@@ -156,7 +170,7 @@ export function IdentityPanel() {
               className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
             />
 
-            {/* Modal */}
+            {/* RSA Key Management Modal Container */}
             <motion.div
               key="modal"
               initial={{ opacity: 0, scale: 0.96, y: -6 }}
@@ -166,7 +180,7 @@ export function IdentityPanel() {
               className="fixed top-20 right-4 sm:right-8 z-50 w-full max-w-sm"
             >
               <div className="bg-card rounded-lg border border-border shadow-2xl overflow-hidden font-mono">
-                {/* Modal header */}
+                {/* Modal Title Header Bar */}
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/30">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-7 w-7 items-center justify-center rounded bg-muted border border-border text-foreground">
@@ -186,16 +200,18 @@ export function IdentityPanel() {
                   </button>
                 </div>
 
-                {/* Modal body */}
+                {/* Modal Body Content */}
                 <div className="p-4 flex flex-col gap-4">
                   {isLoading ? (
+                    /* Loading Spinner */
                     <div className="flex items-center justify-center py-6">
                       <Loader2 className="h-5 w-5 animate-spin text-foreground" />
                     </div>
                   ) : hasKey ? (
-                    // ── Key Exists ─────────────────────────────────────────
+                    /* Identity Key Exists Display */
                     <AnimatePresence mode="wait">
                       {showRegenerateConfirm ? (
+                        /* Regeneration Confirmation Prompt */
                         <motion.div
                           key="confirm"
                           initial={{ opacity: 0 }}
@@ -236,6 +252,7 @@ export function IdentityPanel() {
                           </div>
                         </motion.div>
                       ) : (
+                        /* Key Fingerprint Details & Copy Action Buttons */
                         <motion.div
                           key="keyinfo"
                           initial={{ opacity: 0 }}
@@ -243,7 +260,7 @@ export function IdentityPanel() {
                           exit={{ opacity: 0 }}
                           className="flex flex-col gap-3"
                         >
-                          {/* Key info card */}
+                          {/* Active Key Details Card */}
                           <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 flex flex-col gap-2">
                             <div className="flex items-center gap-2">
                               <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
@@ -263,7 +280,7 @@ export function IdentityPanel() {
                             </span>
                           </div>
 
-                          {/* Copy buttons */}
+                          {/* Public & Private Key Copy Buttons */}
                           <div className="flex flex-col gap-2">
                             <Button
                               id="copy-public-key-btn"
@@ -311,7 +328,7 @@ export function IdentityPanel() {
                             paste. Your private key stays in this browser only.
                           </p>
 
-                          {/* Regenerate */}
+                          {/* Trigger Key Regeneration Button */}
                           <button
                             type="button"
                             onClick={() => setShowRegenerateConfirm(true)}
@@ -324,7 +341,7 @@ export function IdentityPanel() {
                       )}
                     </AnimatePresence>
                   ) : (
-                    // ── No Key Yet ─────────────────────────────────────────
+                    /* No Key Yet - Generate Initial Key Section */
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col items-center text-center gap-2.5 py-2">
                         <div className="flex h-12 w-12 items-center justify-center rounded bg-muted border border-border text-foreground">
@@ -363,7 +380,7 @@ export function IdentityPanel() {
                     </div>
                   )}
 
-                  {/* Error */}
+                  {/* Error Notification Alert */}
                   {error && (
                     <motion.div
                       initial={{ opacity: 0 }}

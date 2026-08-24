@@ -1,9 +1,22 @@
+/**
+ * components/ui/button.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Primitive Button UI Component.
+ *
+ * Supports polymorphic Radix Slot rendering, focus rings, active press scaling,
+ * and variants: default, glow, destructive, outline, secondary, ghost, glass, and link.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 'use client';
 
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+
+// ── SETUP ──────────────────────────────────────────────────────────────
+// Class Variance Authority button variant and size definitions
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]',
@@ -47,9 +60,15 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
+// ── BUTTON COMPONENT ───────────────────────────────────────────────────
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
+    // ── SETUP ──────────────────────────────────────────────────────────────
+    // Resolve underlying DOM element or Radix Slot
     const Comp = asChild ? Slot : 'button';
+
+    // {/* ── UI ───────────────────────────────────────────────────────────────── */}
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
