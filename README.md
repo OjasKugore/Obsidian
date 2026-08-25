@@ -3,6 +3,7 @@
 ## 🔐 What is Obsidian
 
 A zero-knowledge pastebin where **the server never sees what you write**. Built on Next.js 16 and evolved from [PrivateBin](https://privatebin.info/)'s battle-tested security model, extended with asymmetric RSA key wrapping, Shamir's Secret Sharing for multi-party quorum control, and end-to-end encrypted real-time collaboration.
+(obsidian blocks are maaad tough to break in minecraft 😝)
 
 ---
 
