@@ -9,6 +9,7 @@ A zero-knowledge pastebin where **the server never sees what you write**. Built 
 ## Features
 
 - 🆕 **Modernised Legacy Features** —  next-gen tech stack (Next.js 16, React 19, Tailwind v4, Web Crypto API) for legacy features
+- 💻 **Developer CLI Tool (`obsidian`)** — terminal client for encrypted pastes, RSA key management, whole-repo sharing, and Shamir quorum operations
 - 👁️ **Zero-Knowledge Trust Visualizer** — animated encryption explainer UI
 - 💥 **N-View Self-Destruct** — atomic burn-after-reading with configurable view limits
 - ⏳ **Time-Locked Notes** — Time Capsule mode for delayed message access
@@ -29,6 +30,7 @@ A zero-knowledge pastebin where **the server never sees what you write**. Built 
 |---|---|
 | 🚀 Framework | Next.js 16, React 19, Tailwind v4 |
 | 🔒 Crypto | Web Crypto API — AES-256-GCM, PBKDF2, RSA-OAEP, custom GF(2⁸) Shamir SSS |
+| 💻 CLI | Node.js (ESM), Commander, Chalk, Ora, Tar, TSX |
 | 🗄️ Storage | PostgreSQL (Neon) via Prisma |
 | ⚡ Real-time | Pusher WebSockets + `BroadcastChannel` |
 | 🚦 Rate limiting | Upstash Redis, HMAC-SHA256 IP hashing |
@@ -36,6 +38,8 @@ A zero-knowledge pastebin where **the server never sees what you write**. Built 
 ---
 
 ## 🚀 Quickstart
+
+### Web Application
 
 ```bash
 cd obsidian
@@ -67,6 +71,92 @@ npm run dev        # http://localhost:3000
 | Lint | `npm run lint` |
 | Unit tests | `npm test` |
 | Production build | `npm run build && npm start` |
+
+---
+
+## 💻 Developer CLI Tool (`obsidian`)
+
+Obsidian includes a full-featured terminal CLI for scripting, CI/CD pipelines, and terminal-first workflows. Encrypt, decrypt, manage RSA identity keys, split secrets with Shamir quorum, or share entire codebases directly from your shell.
+
+### 📦 Installation & Setup
+
+```bash
+cd obsidian/cli
+npm install
+
+# Link globally to use the `obsidian` command anywhere
+npm link
+
+# Or run directly via tsx:
+npm run dev -- <command>
+```
+
+Configure target server (defaults to `http://localhost:3000`):
+```bash
+obsidian config set-url https://your-obsidian-instance.com
+```
+
+---
+
+### ⚡ Command Reference
+
+| Command | Description | Example |
+|---|---|---|
+| `obsidian send` | Encrypt & upload text or a file | `obsidian send "my secret API key" --burn` |
+| `obsidian read` | Decrypt & read a paste from a URL | `obsidian read "https://...#key"` |
+| `obsidian key` | Manage RSA-2048 identity keypair | `obsidian key generate && obsidian key show --public` |
+| `obsidian repo send` | Tar, encrypt & upload entire folder | `obsidian repo send ./my-project --exclude dist` |
+| `obsidian repo get` | Download, decrypt & extract repo | `obsidian repo get "<url>#key" --output ./restored` |
+| `obsidian shamir split` | Offline mathematical secret splitting | `obsidian shamir split "root-token" -n 5 -k 3` |
+| `obsidian shamir combine` | Offline secret reconstruction | `obsidian shamir combine "<shard1>" "<shard2>"` |
+| `obsidian config` | Inspect or update CLI settings | `obsidian config set-url https://app.example.com` |
+
+---
+
+### 🛠️ Common CLI Workflows
+
+#### 1️⃣ Send a Secret or File (Burn-on-Read)
+```bash
+# Encrypt text with automatic self-destruction upon reading (default)
+obsidian send "sk_live_998822334455"
+
+# Encrypt a file (.env, config, certificate) without burning
+obsidian send --file .env.production --no-burn
+
+# Pipe raw decrypted content in CI/CD scripts
+obsidian read "https://obsidian.app/pasteId#key" --raw > .env
+```
+
+#### 2️⃣ Asymmetric RSA-OAEP Targeted Secret Delivery
+```bash
+# 1. Recipient generates and shares their public key
+obsidian key generate
+obsidian key show --public
+
+# 2. Sender encrypts with recipient's public key (link is useless without recipient's private key)
+obsidian send "confidential deployment keys" --recipient "<RECIPIENT_PUBKEY_BASE64>"
+
+# 3. Recipient decrypts automatically using their local keystore (~/.obsidian/identity.json)
+obsidian read "https://obsidian.app/pasteId#asym"
+```
+
+#### 3️⃣ Multi-Party Quorum (Shamir's Secret Sharing)
+```bash
+# Create a 2-of-3 threshold paste (outputs 3 individual shard links)
+obsidian send "Production Root Access" --shares 3 --threshold 2
+
+# Combine any 2 shard links to reconstruct the key and decrypt
+obsidian read "<shard1_url>" --shards "<shard2_url>"
+```
+
+#### 4️⃣ Entire Repository & Folder Sharing
+```bash
+# Compresses (tar.gz), encrypts, and uploads directory (supports --recipient for 1-to-1 secure delivery)
+obsidian repo send ./backend-service --exclude node_modules dist .git
+
+# Download, decrypt, and unpack directly to an output directory
+obsidian repo get "https://obsidian.app/pasteId#key" --output ./restored-backend
+```
 
 ---
 
@@ -166,24 +256,30 @@ sequenceDiagram
 
 ```
 obsidian/
-├── app/          API routes · pages · vault
-│   ├── api/v1/paste/       create · read · delete · comment
-│   ├── api/v1/collab/      presence-channel auth
-│   ├── pad/                paste editor UI
-│   └── vault/              user vault
-├── components/     UI components
-│   ├── editor/           paste creation UI
-│   ├── viewer/           decryption · quorum panel · comments
-│   ├── crypto/           crypto helpers
-│   ├── collab/           real-time collaboration
-│   ├── sharing/          share UI
-│   ├── qr/               QR code generator
-│   ├── ui/               generic UI primitives
-│   └── header/ · layout/ layout components
+├── app/              API routes · pages · vault · interactive docs
+│   ├── api/v1/paste/           create · read · delete · comment
+│   ├── api/v1/collab/          presence-channel auth
+│   ├── api/docs/               interactive API & CLI portal
+│   ├── pad/                    paste editor UI
+│   └── vault/                  user vault
+├── cli/              Developer CLI tool (`obsidian-cli`)
+│   ├── bin/                    CLI executable wrapper (`obsidian.js`)
+│   ├── src/commands/           send · read · key · repo · shamir · config
+│   ├── src/lib/                crypto · shamir · keystore · API clients
+│   └── src/utils/              archive tar/gzip · display formatters
+├── components/       UI components
+│   ├── editor/                 paste creation UI
+│   ├── viewer/                 decryption · quorum panel · comments
+│   ├── crypto/                 crypto helpers
+│   ├── collab/                 real-time collaboration
+│   ├── sharing/                share UI
+│   ├── qr/                     QR code generator
+│   ├── ui/                     generic UI primitives
+│   └── header/ · layout/       layout components & CLI modal
 ├── lib/              core libraries
-│   ├── crypto/           cipher · kdf · asymmetric · shamir · compress
-│   ├── api/              API clients
-│   └── db                database helpers
+│   ├── crypto/                 cipher · kdf · asymmetric · shamir · compress
+│   ├── api/                    API clients
+│   └── db                      database helpers
 ├── workers/          off-main-thread PBKDF2 worker
 ├── hooks/            custom React hooks
 │   └── usePasteEncryption · usePasteDecryption · useCollab
