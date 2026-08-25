@@ -16,23 +16,16 @@ import { AuroraBackground } from '@/components/ui/AuroraBackground';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  BookOpen,
   Copy,
   Check,
   Code2,
   Terminal,
   Shield,
   Key,
-  Database,
-  Lock,
-  Flame,
-  Clock,
   Users,
   FolderArchive,
   Cpu,
-  Layers,
   Search,
-  ExternalLink,
   Info,
 } from 'lucide-react';
 
@@ -56,77 +49,77 @@ interface CliCommandItem {
 const CLI_COMMANDS: CliCommandItem[] = [
   {
     purpose: 'Send a quick secret (burns on read)',
-    command: 'npm run dev -- send "my secret password"',
+    command: 'obsidian send "my secret password"',
     category: 'Sending',
   },
   {
     purpose: 'Send secret (keeps alive, does not burn)',
-    command: 'npm run dev -- send "team wifi pass" --no-burn',
+    command: 'obsidian send "team wifi pass" --no-burn',
     category: 'Sending',
   },
   {
     purpose: 'Send a file (.env, config, private keys)',
-    command: 'npm run dev -- send --file ./database.env',
+    command: 'obsidian send --file ./database.env',
     category: 'Sending',
   },
   {
     purpose: 'Read & decrypt any paste link',
-    command: 'npm run dev -- read "http://localhost:3000/pasteId#key"',
+    command: 'obsidian read "https://obsidian-tawny-chi.vercel.app/pasteId#key"',
     category: 'Reading',
   },
   {
     purpose: 'Generate personal RSA-2048 identity key',
-    command: 'npm run dev -- key generate',
+    command: 'obsidian key generate',
     category: 'Identity',
   },
   {
     purpose: 'Show & copy public key to share with others',
-    command: 'npm run dev -- key show --public',
+    command: 'obsidian key show --public',
     category: 'Identity',
   },
   {
     purpose: 'Send secret to a specific person (Asymmetric)',
-    command: 'npm run dev -- send "classified" --recipient "PASTE_PUBLIC_KEY_HERE"',
+    command: 'obsidian send "classified" --recipient "PASTE_PUBLIC_KEY_HERE"',
     category: 'Sending',
   },
   {
     purpose: 'Create a 2-of-3 Team Quorum (Shamir SSS)',
-    command: 'npm run dev -- send "root password" --shares 3 --threshold 2',
+    command: 'obsidian send "root password" --shares 3 --threshold 2',
     category: 'Shamir',
   },
   {
     purpose: 'Decrypt Shamir paste with 2 shards',
-    command: 'npm run dev -- read "<shard1_url>" --shards "<shard2_url>"',
+    command: 'obsidian read "<shard1_url>" --shards "<shard2_url>"',
     category: 'Shamir',
   },
   {
     purpose: 'Encrypt & send an entire folder / repository',
-    command: 'npm run dev -- repo send ./my-app --recipient "PASTE_PUBLIC_KEY_HERE"',
+    command: 'obsidian repo send ./my-app --recipient "PASTE_PUBLIC_KEY_HERE"',
     category: 'Repository',
   },
   {
     purpose: 'Download & decrypt a whole repository',
-    command: 'npm run dev -- repo get "http://localhost:3000/repoId#asym" --output ./my-app',
+    command: 'obsidian repo get "https://obsidian-tawny-chi.vercel.app/repoId#asym" --output ./my-app',
     category: 'Repository',
   },
   {
     purpose: 'Split a password locally (offline, no server)',
-    command: 'npm run dev -- shamir split "super-secret" --shares 3 --threshold 2',
+    command: 'obsidian shamir split "super-secret" --shares 3 --threshold 2',
     category: 'Shamir',
   },
   {
     purpose: 'Recombine local shards (offline, no server)',
-    command: 'npm run dev -- shamir combine "shard-1-..." "shard-2-..."',
+    command: 'obsidian shamir combine "shard-1-..." "shard-2-..."',
     category: 'Shamir',
   },
   {
-    purpose: 'Check current server URL (Default: localhost:3000)',
-    command: 'npm run dev -- config get-url',
+    purpose: 'Check current server URL',
+    command: 'obsidian config get-url',
     category: 'Config',
   },
   {
     purpose: 'Point CLI to a deployed server',
-    command: 'npm run dev -- config set-url https://obsidian.domain',
+    command: 'obsidian config set-url https://obsidian-tawny-chi.vercel.app',
     category: 'Config',
   },
 ];
@@ -163,7 +156,7 @@ const ENDPOINTS: EndpointDoc[] = [
   "pasteId": "a1b2c3d4e5f67890", // 16 hex chars (fnv1a64 of ciphertext)
   "deleteToken": "9f8e7d6c5b4a3210..." // HMAC-SHA256 required to DELETE
 }`,
-    curlExample: `curl -X POST https://obsidian.domain/api/v1/paste \\
+    curlExample: `curl -X POST https://obsidian-tawny-chi.vercel.app/api/v1/paste \\
   -H "Content-Type: application/json" \\
   -d '{
     "v": 2,
@@ -201,7 +194,7 @@ const ENDPOINTS: EndpointDoc[] = [
     }
   }
 }`,
-    curlExample: `curl -X GET https://obsidian.domain/api/v1/paste/a1b2c3d4e5f67890`,
+    curlExample: `curl -X GET https://obsidian-tawny-chi.vercel.app/api/v1/paste/a1b2c3d4e5f67890`,
   },
   {
     method: 'DELETE',
@@ -220,7 +213,7 @@ const ENDPOINTS: EndpointDoc[] = [
     "signature": "f2a1b3c4d5e6..."
   }
 }`,
-    curlExample: `curl -X DELETE "https://obsidian.domain/api/v1/paste/a1b2c3d4e5f67890" \\
+    curlExample: `curl -X DELETE "https://obsidian-tawny-chi.vercel.app/api/v1/paste/a1b2c3d4e5f67890" \\
   -H "Content-Type: application/json" \\
   -d '{"deleteToken": "9f8e7d6c5b4a3210..."}'`,
   },
@@ -244,9 +237,40 @@ const ENDPOINTS: EndpointDoc[] = [
   "proofOfAbsence": true,
   "message": "Burn receipt verified. Paste record is confirmed purged from storage."
 }`,
-    curlExample: `curl -X POST https://obsidian.domain/api/v1/receipt/a1b2c3d4e5f67890 \\
+    curlExample: `curl -X POST https://obsidian-tawny-chi.vercel.app/api/v1/receipt/a1b2c3d4e5f67890 \\
   -H "Content-Type: application/json" \\
   -d '{"receipt": {"receiptId": "...", "destroyedAt": "...", "signature": "..."}}'`,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/collab/auth',
+    summary: 'Pusher collaboration channel authentication',
+    description:
+      'Signs Pusher presence channel subscription requests for real-time E2EE collaboration. Validates paste presence and assigns user avatars/colors with zero knowledge of decryption keys.',
+    rateLimit: '10 requests per 10s window',
+    requestBody: `socket_id=1234.5678&channel_name=presence-collab-a1b2c3d4e5f67890`,
+    responseBody: `{
+  "auth": "94d6c5ce50da32f62785:d7a8e...",
+  "channel_data": "{\\"user_id\\":\\"1234.5678\\",\\"user_info\\":{\\"name\\":\\"Shadow Fox\\",\\"color\\":\\"#8b5cf6\\"}}"
+}`,
+    curlExample: `curl -X POST https://obsidian-tawny-chi.vercel.app/api/v1/collab/auth \\
+  -H "Content-Type: application/x-www-form-urlencoded" \\
+  -d "socket_id=1234.5678&channel_name=presence-collab-a1b2c3d4e5f67890"`,
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/cron/cleanup',
+    summary: 'Cron job sweep for expired pastes',
+    description:
+      'Scheduled maintenance sweep that permanently deletes expired pastes and orphaned records. Protected with CRON_SECRET authorization header.',
+    rateLimit: 'Scheduled Vercel Cron invocation',
+    responseBody: `{
+  "status": "ok",
+  "timestamp": "2026-08-25T08:00:00.000Z",
+  "deletedCount": 3
+}`,
+    curlExample: `curl -X GET https://obsidian-tawny-chi.vercel.app/api/v1/cron/cleanup \\
+  -H "Authorization: Bearer <CRON_SECRET>"`,
   },
 ];
 
@@ -340,12 +364,12 @@ export default function ApiDocsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="flex flex-col gap-1 p-3 rounded bg-background border border-border">
-                  <span className="text-[10px] font-bold text-muted-foreground">1. Install Dependencies:</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">1. Install &amp; Link Globally:</span>
                   <div className="flex items-center justify-between text-xs text-foreground font-mono">
-                    <code>cd obsidian/cli &amp;&amp; npm install</code>
+                    <code>cd obsidian/cli &amp;&amp; npm install &amp;&amp; npm link</code>
                     <button
                       type="button"
-                      onClick={() => handleCopy('cd obsidian/cli && npm install', 'setup-1')}
+                      onClick={() => handleCopy('cd obsidian/cli && npm install && npm link', 'setup-1')}
                       className="p-1 hover:text-foreground text-muted-foreground cursor-pointer"
                     >
                       {copiedIndex === 'setup-1' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -356,10 +380,10 @@ export default function ApiDocsPage() {
                 <div className="flex flex-col gap-1 p-3 rounded bg-background border border-border">
                   <span className="text-[10px] font-bold text-muted-foreground">2. View Help &amp; Commands:</span>
                   <div className="flex items-center justify-between text-xs text-foreground font-mono">
-                    <code>npm run dev -- --help</code>
+                    <code>obsidian --help</code>
                     <button
                       type="button"
-                      onClick={() => handleCopy('npm run dev -- --help', 'setup-2')}
+                      onClick={() => handleCopy('obsidian --help', 'setup-2')}
                       className="p-1 hover:text-foreground text-muted-foreground cursor-pointer"
                     >
                       {copiedIndex === 'setup-2' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -446,13 +470,13 @@ export default function ApiDocsPage() {
                 </p>
                 <pre className="p-2.5 rounded bg-background border border-border text-[10px] text-foreground overflow-x-auto leading-relaxed">
 {`# Send secret (burns on read):
-npm run dev -- send "sk_live_998822334455"
+obsidian send "sk_live_998822334455"
 
 # Send from file without burning:
-npm run dev -- send --file ./secrets.env --no-burn
+obsidian send --file ./secrets.env --no-burn
 
 # Read & decrypt link:
-npm run dev -- read "http://localhost:3000/pasteId#key"`}
+obsidian read "https://obsidian-tawny-chi.vercel.app/pasteId#key"`}
                 </pre>
               </div>
 
@@ -467,14 +491,14 @@ npm run dev -- read "http://localhost:3000/pasteId#key"`}
                 </p>
                 <pre className="p-2.5 rounded bg-background border border-border text-[10px] text-foreground overflow-x-auto leading-relaxed">
 {`# 1. Recipient generates & shows public key:
-npm run dev -- key generate
-npm run dev -- key show --public
+obsidian key generate
+obsidian key show --public
 
 # 2. Sender encrypts for recipient:
-npm run dev -- send "Confidential" --recipient "<SPKI_KEY>"
+obsidian send "Confidential" --recipient "<SPKI_KEY>"
 
 # 3. Recipient reads with private key:
-npm run dev -- read "http://localhost:3000/pasteId#asym"`}
+obsidian read "https://obsidian-tawny-chi.vercel.app/pasteId#asym"`}
                 </pre>
               </div>
 
@@ -489,10 +513,10 @@ npm run dev -- read "http://localhost:3000/pasteId#asym"`}
                 </p>
                 <pre className="p-2.5 rounded bg-background border border-border text-[10px] text-foreground overflow-x-auto leading-relaxed">
 {`# Create 2-of-3 quorum paste:
-npm run dev -- send "Root Key" --shares 3 --threshold 2
+obsidian send "Root Key" --shares 3 --threshold 2
 
 # Decrypt when holding 2 shards:
-npm run dev -- read "<shard1_url>" --shards "<shard2_url>"`}
+obsidian read "<shard1_url>" --shards "<shard2_url>"`}
                 </pre>
               </div>
 
@@ -507,10 +531,10 @@ npm run dev -- read "<shard1_url>" --shards "<shard2_url>"`}
                 </p>
                 <pre className="p-2.5 rounded bg-background border border-border text-[10px] text-foreground overflow-x-auto leading-relaxed">
 {`# Encrypt & send entire repository:
-npm run dev -- repo send ./my-project --recipient "<KEY>"
+obsidian repo send ./my-project --recipient "<KEY>"
 
 # Download, decrypt & extract folder:
-npm run dev -- repo get "http://localhost:3000/repoId#asym" --output ./recovered`}
+obsidian repo get "https://obsidian-tawny-chi.vercel.app/repoId#asym" --output ./recovered`}
                 </pre>
               </div>
             </div>
