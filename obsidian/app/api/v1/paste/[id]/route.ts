@@ -63,64 +63,65 @@ export async function GET(
   const ipHash = await hmacIP(getClientIP(request));
 
   try {
-    // ── Atomic burn-after-reading + N-view self-destruct ──────────────────
-    const paste = await prisma.$transaction(async (tx) => {
-      // Lock the row for the duration of this transaction
-      const found = await tx.paste.findUnique({ where: { id } });
-      if (!found) return null;
+    // ── Check expiry and time-lock first (no transaction needed) ──────────
+    const found = await prisma.paste.findUnique({ where: { id } });
 
-      // Check expiry
-      if (found.expiresAt && found.expiresAt < new Date()) {
-        await tx.paste.delete({ where: { id } });
-        return null;
-      }
-
-      // Time-lock check: reject if the unlock time hasn't arrived yet
-      if (found.timelockedUntil && found.timelockedUntil > new Date()) {
-        // Return a special sentinel instead of null
-        return { __locked: true, timelockedUntil: found.timelockedUntil } as const;
-      }
-
-      // N-view self-destruct
-      const newViews = found.views + 1;
-      const shouldDestruct =
-        found.maxViews !== null && newViews >= found.maxViews;
-
-      // Burn-after-reading or max views reached: delete and return the data in one shot
-      if (found.burnAfterReading || shouldDestruct) {
-        await tx.paste.delete({ where: { id } });
-        const reason = found.burnAfterReading ? 'BURN_AFTER_READING' : 'MAX_VIEWS_REACHED';
-        return { ...found, views: newViews, __destroyed: true, __destroyReason: reason } as const;
-      }
-
-      // Normal paste: increment view count + log
-      const updated = await tx.paste.update({
-        where: { id },
-        data: { views: { increment: 1 } },
-      });
-      await tx.accessLog.create({
-        data: { pasteId: id, ipHash },
-      });
-      return updated;
-    });
-
-    if (!paste) {
+    if (!found) {
       return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
     }
 
-    // Time-locked response
-    if ('__locked' in paste) {
+    // Check expiry
+    if (found.expiresAt && found.expiresAt < new Date()) {
+      await prisma.paste.delete({ where: { id } }).catch(() => {});
+      return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
+    }
+
+    // Time-lock check
+    if (found.timelockedUntil && found.timelockedUntil > new Date()) {
       return NextResponse.json(
         {
           error: 'This paste is time-locked.',
-          timelockedUntil: (paste as { timelockedUntil: Date }).timelockedUntil.toISOString(),
+          timelockedUntil: found.timelockedUntil.toISOString(),
         },
-        { status: 423 } // 423 Locked
+        { status: 423 }
       );
     }
 
+    const newViews = found.views + 1;
+    const shouldDestruct = found.maxViews !== null && newViews >= found.maxViews;
+
+    // ── Atomic burn / N-view self-destruct (requires transaction) ─────────
+    let paste: typeof found & { views: number; __destroyed?: boolean; __destroyReason?: string };
+    if (found.burnAfterReading || shouldDestruct) {
+      // Use transaction with longer timeout for burn-after-reading
+      const result = await prisma.$transaction(
+        async (tx) => {
+          const locked = await tx.paste.findUnique({ where: { id } });
+          if (!locked) return null;
+          await tx.paste.delete({ where: { id } });
+          const reason = locked.burnAfterReading ? 'BURN_AFTER_READING' : 'MAX_VIEWS_REACHED';
+          return { ...locked, views: newViews, __destroyed: true, __destroyReason: reason };
+        },
+        { timeout: 15000 }
+      );
+      if (!result) {
+        return NextResponse.json({ error: 'Paste not found' }, { status: 404 });
+      }
+      paste = result;
+    } else {
+      // Normal paste — simple non-transactional update
+      paste = await prisma.paste.update({
+        where: { id },
+        data: { views: { increment: 1 } },
+      });
+      // Fire-and-forget access log (don't block the response)
+      prisma.accessLog.create({ data: { pasteId: id, ipHash } }).catch(() => {});
+    }
+
+    const pasteData = paste;
+
     let burnReceipt = null;
-    if ('__destroyed' in paste && paste.__destroyed) {
+    if (paste && '__destroyed' in paste && paste.__destroyed) {
       burnReceipt = await createBurnReceipt(
         id,
         paste.__destroyReason as 'BURN_AFTER_READING' | 'MAX_VIEWS_REACHED',
@@ -130,20 +131,20 @@ export async function GET(
 
     const response: GetPasteResponse = {
       v: 2,
-      ct: paste.ciphertext,
-      adata: paste.adata as GetPasteResponse['adata'],
+      ct: pasteData.ciphertext,
+      adata: pasteData.adata as GetPasteResponse['adata'],
       meta: {
-        createdAt: paste.createdAt.toISOString(),
-        expiresAt: paste.expiresAt?.toISOString() ?? null,
-        burnAfterReading: paste.burnAfterReading,
-        openDiscussion: paste.openDiscussion,
-        maxViews: paste.maxViews,
-        timelockedUntil: paste.timelockedUntil?.toISOString() ?? null,
-        shard: paste.shard,
-        shardIndex: paste.shardIndex,
-        shardTotal: paste.shardTotal,
-        recipientMode: paste.recipientMode,
-        views: paste.views,
+        createdAt: pasteData.createdAt.toISOString(),
+        expiresAt: pasteData.expiresAt?.toISOString() ?? null,
+        burnAfterReading: pasteData.burnAfterReading,
+        openDiscussion: pasteData.openDiscussion,
+        maxViews: pasteData.maxViews,
+        timelockedUntil: pasteData.timelockedUntil?.toISOString() ?? null,
+        shard: pasteData.shard,
+        shardIndex: pasteData.shardIndex,
+        shardTotal: pasteData.shardTotal,
+        recipientMode: pasteData.recipientMode,
+        views: pasteData.views,
         burnReceipt,
       },
     };

@@ -1,0 +1,6 @@
+{
+  "name": "dummy-repo-2",
+  "version": "1.0.0",
+  "description": "A test repository for Obsidian CLI",
+  "main": "index.js"
+}
