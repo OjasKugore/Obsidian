@@ -142,7 +142,7 @@ export function makeReadCommand(): Command {
             label('Provided', `${collectedShards.length} shard(s) [Shard #${Array.from(shardMap.keys()).join(', Shard #')}]`);
             console.log('');
             console.log(chalk.cyan.bold('  To decrypt, supply the remaining shard URL(s):'));
-            console.log(chalk.white(`  npm run dev -- read "${url}" --shards "<second-shard-url>"`));
+            console.log(chalk.white(`  obsidian read "${url}" --shards "<second-shard-url>"`));
             console.log('');
             return;
           }
