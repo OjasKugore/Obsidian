@@ -5,11 +5,11 @@ import { dirname, resolve } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const entry = resolve(__dirname, '../src/index.ts');
-const tsxBin = resolve(__dirname, '../node_modules/.bin/tsx');
+const tsxCli = resolve(__dirname, '../node_modules/tsx/dist/cli.mjs');
 
 const child = spawn(
-  tsxBin,
-  [entry, ...process.argv.slice(2)],
+  process.execPath,
+  [tsxCli, entry, ...process.argv.slice(2)],
   { stdio: 'inherit', env: process.env }
 );
 
