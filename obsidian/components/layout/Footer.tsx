@@ -54,7 +54,7 @@ export function Footer({ onOpenTrustVisualizer }: FooterProps) {
             </button>
 
             <a
-              href="https://github.com/OjasKugore/PrivateBinRevamp"
+              href="https://github.com/OjasKugore/clonefest"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer"

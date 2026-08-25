@@ -154,7 +154,7 @@ export function CliPanel() {
                   {/* Footer link */}
                   <div className="pt-2 border-t border-border flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground">NPM Package available soon.</span>
-                    <a href="https://github.com/your-username/obsidian/tree/main/cli" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-foreground hover:underline transition-all">
+                    <a href="https://github.com/OjasKugore/clonefest/tree/main/obsidian/cli" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-foreground hover:underline transition-all">
                       View CLI Docs →
                     </a>
                   </div>
