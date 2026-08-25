@@ -4,7 +4,7 @@
   "description": "Developer CLI for Obsidian encrypted pastebin — send, receive, and manage E2EE pastes from the terminal",
   "type": "module",
   "bin": {
-    "obsidian": "dist/index.js"
+    "obsidian": "bin/obsidian.js"
   },
   "scripts": {
     "dev": "node --import tsx/esm src/index.ts",
